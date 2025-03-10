@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -34,11 +35,25 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 }
 
+var gameSessions = make(map[string]*GameSession)
+
 func gameHandler(ctx *gin.Context) {
 	gameId := ctx.Param("id")
 
 	conn, _ := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
-	defer conn.Close()
+	client := &GameClient{conn: conn, incoming: make(chan string)}
 
-	conn.WriteMessage(websocket.TextMessage, []byte("game: "+gameId))
+	session, ok := gameSessions[gameId]
+	if !ok {
+		session = &GameSession{[2]*GameClient{client, nil}}
+	} else if session.players[1] == nil {
+		session.players[1] = client
+		go session.Start()
+	} else {
+		client.conn.Close()
+		fmt.Println("joining full game")
+		return
+	}
+
+	client.Loop()
 }
