@@ -1,4 +1,4 @@
-package main
+package game
 
 import (
 	"fmt"
@@ -9,18 +9,18 @@ import (
 )
 
 type GameClient struct {
-	conn     *websocket.Conn
-	incoming chan string
+	Conn     *websocket.Conn
+	Incoming chan string
 }
 
 func (client *GameClient) SendMessage(message string) {
-	client.conn.WriteMessage(websocket.TextMessage, []byte(message))
+	client.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 }
 
-func (client *GameClient) Loop() {
-	defer client.conn.Close()
+func (client *GameClient) Loop(id string) {
+	defer client.Conn.Close()
 	for {
-		variant, message, err := client.conn.ReadMessage()
+		variant, message, err := client.Conn.ReadMessage()
 		if err != nil {
 			break
 		}
@@ -29,22 +29,25 @@ func (client *GameClient) Loop() {
 			continue
 		}
 
-		client.incoming <- string(message)
+		str := strings.TrimSpace(string(message))
+
+		fmt.Println(id, ">", str)
+		client.Incoming <- str
 	}
 }
 
 type GameSession struct {
-	players [2]*GameClient
+	Players [2]*GameClient
 }
 
 func (session *GameSession) broadcast(message string) {
-	for _, player := range session.players {
+	for _, player := range session.Players {
 		player.SendMessage(message)
 	}
 }
 
 func (session *GameSession) broadcastExcept(message string, except int) {
-	for i, player := range session.players {
+	for i, player := range session.Players {
 		if i != except {
 			player.SendMessage(message)
 		}
@@ -58,16 +61,18 @@ func (session *GameSession) Start() {
 
 func (session *GameSession) waitForReady(p1, p2 bool) {
 	if p1 && p2 {
+		fmt.Println("Players are ready")
 		session.startTurnRandom()
 		return
 	}
 
+	fmt.Println("Waiting for 'ready'", p1, p2)
 	select {
-	case message := <-session.players[0].incoming:
+	case message := <-session.Players[0].Incoming:
 		if message == "ready" {
 			session.waitForReady(true, p2)
 		}
-	case message := <-session.players[1].incoming:
+	case message := <-session.Players[1].Incoming:
 		if message == "ready" {
 			session.waitForReady(p1, true)
 		}
@@ -75,12 +80,12 @@ func (session *GameSession) waitForReady(p1, p2 bool) {
 }
 
 func (session *GameSession) startTurnRandom() {
-	randPlayer := rand.Intn(len(session.players))
+	randPlayer := rand.Intn(len(session.Players))
 	session.startTurn(randPlayer)
 }
 
 func (session *GameSession) startTurn(player int) {
-	session.players[player].SendMessage("turn you")
+	session.Players[player].SendMessage("turn you")
 	session.broadcastExcept("turn opponent", player)
 
 	session.broadcast("dice 1,2,3,4,5,6")
@@ -97,13 +102,13 @@ func (session *GameSession) startTurn(player int) {
 		return
 	}
 
-	session.startTurn((player + 1) % len(session.players))
+	session.startTurn((player + 1) % len(session.Players))
 }
 
 func (session *GameSession) getPicks(player int) []int {
 	picks := make([]int, 0)
 	for {
-		msg := <-session.players[player].incoming
+		msg := <-session.Players[player].Incoming
 		session.broadcastExcept(msg, player)
 		if strings.HasPrefix(msg, "pick ") {
 			pick, _ := strconv.Atoi(strings.TrimPrefix(msg, "pick "))
@@ -117,6 +122,6 @@ func (session *GameSession) getPicks(player int) []int {
 }
 
 func (session *GameSession) finishGame(winner int) {
-	session.players[winner].SendMessage("winner you")
+	session.Players[winner].SendMessage("winner you")
 	session.broadcastExcept("winner opponent", winner)
 }

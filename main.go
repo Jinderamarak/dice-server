@@ -1,6 +1,7 @@
 package main
 
 import (
+	"dice-server/game"
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -35,25 +36,32 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 }
 
-var gameSessions = make(map[string]*GameSession)
+var gameSessions = make(map[string]*game.GameSession)
 
 func gameHandler(ctx *gin.Context) {
 	gameId := ctx.Param("id")
 
+	fmt.Println("Connection for game", gameId)
 	conn, _ := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
-	client := &GameClient{conn: conn, incoming: make(chan string)}
+	client := &game.GameClient{Conn: conn, Incoming: make(chan string)}
 
+	id := "idk"
 	session, ok := gameSessions[gameId]
 	if !ok {
-		session = &GameSession{[2]*GameClient{client, nil}}
-	} else if session.players[1] == nil {
-		session.players[1] = client
+		fmt.Println("Creating new session")
+		session = &game.GameSession{[2]*game.GameClient{client, nil}}
+		gameSessions[gameId] = session
+		id = "p1"
+	} else if session.Players[1] == nil {
+		fmt.Println("Joining existing session and starting")
+		session.Players[1] = client
 		go session.Start()
+		id = "p2"
 	} else {
-		client.conn.Close()
-		fmt.Println("joining full game")
+		client.Conn.Close()
+		fmt.Println("Joining full game")
 		return
 	}
 
-	client.Loop()
+	client.Loop(id)
 }
