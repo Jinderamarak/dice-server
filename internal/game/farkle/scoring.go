@@ -13,8 +13,8 @@ const (
 
 func countValues(dice []common.Dice) map[int]int {
 	counts := make(map[int]int)
-	for _, die := range dice {
-		counts[die.Value]++
+	for _, d := range dice {
+		counts[d.Value]++
 	}
 	return counts
 }
@@ -82,19 +82,19 @@ func scoreCounts(counts map[int]int) (int, bool) {
 		switch value {
 		case 1:
 			if count >= 3 {
-				score += dieCountMultiplier(1000, count)
+				score += diceCountMultiplier(1000, count)
 			} else {
 				score += count * 100
 			}
 		case 5:
 			if count >= 3 {
-				score += dieCountMultiplier(500, count)
+				score += diceCountMultiplier(500, count)
 			} else {
 				score += count * 50
 			}
 		case 2, 3, 4, 6:
 			if count >= 3 {
-				score += dieCountMultiplier(value*100, count)
+				score += diceCountMultiplier(value*100, count)
 			} else if count > 0 {
 				extra = true
 			}
@@ -104,7 +104,7 @@ func scoreCounts(counts map[int]int) (int, bool) {
 	return score, extra
 }
 
-func dieCountMultiplier(base, count int) int {
+func diceCountMultiplier(base, count int) int {
 	return base * powInt(2, count-3)
 }
 

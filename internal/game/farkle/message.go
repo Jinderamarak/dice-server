@@ -35,7 +35,7 @@ type VariantUpdateScore struct {
 }
 
 type VariantDiceTouch struct {
-	DiceId   uuid.UUID `json:"dieId"`
+	DiceId   uuid.UUID `json:"diceId"`
 	Selected bool      `json:"selected"`
 }
 
@@ -64,8 +64,8 @@ func MakeUpdateScore(playerId uuid.UUID, selectedScore, turnScore, totalScore in
 	})
 }
 
-func MakeDiceTouch(dieId uuid.UUID, selected bool) *client.Message {
-	return client.MustMarshalMessage(VarDiceTouch, VariantDiceTouch{DiceId: dieId, Selected: selected})
+func MakeDiceTouch(diceId uuid.UUID, selected bool) *client.Message {
+	return client.MustMarshalMessage(VarDiceTouch, VariantDiceTouch{DiceId: diceId, Selected: selected})
 }
 
 func MakeScoreRoll(playerId uuid.UUID) *client.Message {

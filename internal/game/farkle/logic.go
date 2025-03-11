@@ -3,7 +3,6 @@ package farkle
 import (
 	"dice-server/internal/client"
 	"dice-server/internal/game/common"
-	"errors"
 	"github.com/google/uuid"
 	"log"
 	"math/rand"
@@ -139,9 +138,8 @@ func (game *Game) turnLoop(player *Player) (int, error) {
 				}
 
 				log.Println("Player touched dice:", data.DiceId, data.Selected)
-				if err := touchDie(&availableDice, &selectedDice, data.DiceId, data.Selected); err != nil {
-					err = player.Client.SendMessage(common.MakeError(err.Error()))
-					if err != nil {
+				if !touchDice(&availableDice, &selectedDice, data.DiceId, data.Selected) {
+					if err := player.Client.SendMessage(common.MakeError("Unknown dice")); err != nil {
 						return 0, err
 					}
 				}
@@ -220,24 +218,23 @@ func (game *Game) turnLoop(player *Player) (int, error) {
 	return turnScore, nil
 }
 
-func touchDie(available *[]common.Dice, selected *[]common.Dice, dieId uuid.UUID, sel bool) error {
+func touchDice(available *[]common.Dice, selected *[]common.Dice, diceId uuid.UUID, sel bool) bool {
 	if sel {
-		for i, die := range *available {
-			if die.Id == dieId {
-				*selected = append(*selected, die)
+		for i, dice := range *available {
+			if dice.Id == diceId {
+				*selected = append(*selected, dice)
 				*available = append((*available)[:i], (*available)[i+1:]...)
-				return nil
+				return true
 			}
 		}
-		return errors.New("die not found")
 	} else {
-		for i, die := range *selected {
-			if die.Id == dieId {
-				*available = append(*available, die)
+		for i, dice := range *selected {
+			if dice.Id == diceId {
+				*available = append(*available, dice)
 				*selected = append((*selected)[:i], (*selected)[i+1:]...)
-				return nil
+				return true
 			}
 		}
-		return errors.New("die not found")
 	}
+	return false
 }

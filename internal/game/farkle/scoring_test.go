@@ -89,9 +89,9 @@ func TestScoreCountsSixOfKind(t *testing.T) {
 	testVariant(t, []int{0, 0, 0, 0, 0, 6}, 4800, false)
 }
 
-func TestDieCountMultiplier(t *testing.T) {
+func TestDiceCountMultiplier(t *testing.T) {
 	const expected = 8000
-	actual := dieCountMultiplier(1000, 6)
+	actual := diceCountMultiplier(1000, 6)
 	if actual != expected {
 		t.Errorf("Expected %d, got %d", expected, actual)
 	}
