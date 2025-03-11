@@ -50,7 +50,7 @@ var clients = make(map[string]tempPlayer)
 
 func gameHandler(ctx *gin.Context) {
 	gameId := ctx.Param("id")
-	playerIdStr := ctx.Request.Header.Get("Authorization")
+	playerIdStr := ctx.Query("playerId")
 	playerId := uuid.MustParse(playerIdStr)
 
 	fmt.Println("Connection for game", gameId)
