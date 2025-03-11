@@ -3,8 +3,8 @@ package client
 import "encoding/json"
 
 type Message struct {
-	Variant string
-	data    *json.RawMessage
+	Variant string           `json:"variant"`
+	Data    *json.RawMessage `json:"data"`
 }
 
 func MarshalMessage(variant string, data interface{}) (*Message, error) {
@@ -15,7 +15,7 @@ func MarshalMessage(variant string, data interface{}) (*Message, error) {
 
 	message := Message{
 		Variant: variant,
-		data:    (*json.RawMessage)(&raw),
+		Data:    (*json.RawMessage)(&raw),
 	}
 	return &message, nil
 }
@@ -29,7 +29,7 @@ func MustMarshalMessage(variant string, data interface{}) *Message {
 }
 
 func (message *Message) UnmarshalData(data interface{}) error {
-	return json.Unmarshal(*message.data, data)
+	return json.Unmarshal(*message.Data, data)
 }
 
 func (message *Message) MustUnmarshalData(data interface{}) {
