@@ -1,6 +1,9 @@
 package farkle
 
-import "github.com/google/uuid"
+import (
+	"dice-server/internal/client"
+	"github.com/google/uuid"
+)
 
 const (
 	VarTurnBegin   = "farkle-turn-begin"
@@ -41,4 +44,33 @@ type VariantScoreRoll struct {
 
 type VariantEndTurn struct {
 	PlayerId uuid.UUID `json:"playerId"`
+}
+
+func MakeTurnBegin(playerId uuid.UUID) *client.Message {
+	return client.MustMarshalMessage(VarTurnBegin, VariantTurnBegin{PlayerId: playerId})
+}
+
+func MakeDiceRoll(dice []Die, busted bool) *client.Message {
+	return client.MustMarshalMessage(VarDiceRoll, VariantDiceRoll{Dice: dice, Busted: busted})
+}
+
+func MakeUpdateScore(playerId uuid.UUID, selectedScore, turnScore, totalScore int) *client.Message {
+	return client.MustMarshalMessage(VarUpdateScore, VariantUpdateScore{
+		PlayerId:      playerId,
+		SelectedScore: selectedScore,
+		TurnScore:     turnScore,
+		TotalScore:    totalScore,
+	})
+}
+
+func MakeDiceTouch(dieId uuid.UUID, selected bool) *client.Message {
+	return client.MustMarshalMessage(VarDiceTouch, VariantDiceTouch{DieId: dieId, Selected: selected})
+}
+
+func MakeScoreRoll(playerId uuid.UUID) *client.Message {
+	return client.MustMarshalMessage(VarScoreRoll, VariantScoreRoll{PlayerId: playerId})
+}
+
+func MakeEndTurn(playerId uuid.UUID) *client.Message {
+	return client.MustMarshalMessage(VarEndTurn, VariantEndTurn{PlayerId: playerId})
 }

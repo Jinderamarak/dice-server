@@ -57,31 +57,13 @@ func preparePlayer() (*Player, *TestClient) {
 	c := &TestClient{
 		SendingQueue: []*client.Message{},
 		ReceivingQueue: []*client.Message{
-			client.MustMarshalMessage(VarDiceTouch, VariantDiceTouch{
-				DieId:    dice[0].Id,
-				Selected: true,
-			}),
-			client.MustMarshalMessage(VarDiceTouch, VariantDiceTouch{
-				DieId:    dice[1].Id,
-				Selected: true,
-			}),
-			client.MustMarshalMessage(VarDiceTouch, VariantDiceTouch{
-				DieId:    dice[2].Id,
-				Selected: true,
-			}),
-			client.MustMarshalMessage(VarDiceTouch, VariantDiceTouch{
-				DieId:    dice[3].Id,
-				Selected: true,
-			}),
-			client.MustMarshalMessage(VarDiceTouch, VariantDiceTouch{
-				DieId:    dice[4].Id,
-				Selected: true,
-			}),
-			client.MustMarshalMessage(VarDiceTouch, VariantDiceTouch{
-				DieId:    dice[5].Id,
-				Selected: true,
-			}),
-			client.MustMarshalMessage(VarEndTurn, VariantEndTurn{}),
+			MakeDiceTouch(dice[0].Id, true),
+			MakeDiceTouch(dice[1].Id, true),
+			MakeDiceTouch(dice[2].Id, true),
+			MakeDiceTouch(dice[3].Id, true),
+			MakeDiceTouch(dice[4].Id, true),
+			MakeDiceTouch(dice[5].Id, true),
+			MakeEndTurn(uuid.Nil),
 		},
 	}
 

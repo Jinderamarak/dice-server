@@ -23,19 +23,13 @@ func NewGame(p1, p2 *Player, roller DiceRoller) *Game {
 	}
 }
 
-func (game *Game) broadcast(variant string, data interface{}) error {
-	msg, err := client.MarshalMessage(variant, data)
-	if err != nil {
-		return err
-	}
-
+func (game *Game) broadcast(message *client.Message) error {
 	for _, player := range game.Players {
-		err := player.Client.SendMessage(msg)
+		err := player.Client.SendMessage(message)
 		if err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -45,18 +39,9 @@ func (game *Game) Start() {
 	if err != nil {
 		log.Println(err)
 
-		data := common.VariantError{
-			Message: err.Error(),
-		}
-
-		msg, err := client.MarshalMessage(common.VarError, data)
-		if err != nil {
-			log.Println("Failed to marshal error message")
-			return
-		}
-
+		errorMessage := common.MakeError(err.Error())
 		for _, player := range game.Players {
-			err := player.Client.SendMessage(msg)
+			err := player.Client.SendMessage(errorMessage)
 			if err != nil {
 				log.Println("Failed to send error message")
 			}
@@ -65,9 +50,10 @@ func (game *Game) Start() {
 }
 
 func (game *Game) begin() error {
-	err := game.broadcast(common.VarGameBegin, common.VariantGameBegin{
-		Players: []uuid.UUID{game.Players[0].Id, game.Players[1].Id},
-	})
+	err := game.broadcast(common.MakeGameBegin(
+		game.Players[0].Id,
+		game.Players[1].Id,
+	))
 	if err != nil {
 		return err
 	}
@@ -81,9 +67,7 @@ func (game *Game) gameLoop() error {
 		currentPlayer = (currentPlayer + 1) % len(game.Players)
 		player := game.Players[currentPlayer]
 
-		if err := game.broadcast(VarTurnBegin, VariantTurnBegin{
-			PlayerId: player.Id,
-		}); err != nil {
+		if err := game.broadcast(MakeTurnBegin(player.Id)); err != nil {
 			return err
 		}
 
@@ -93,20 +77,18 @@ func (game *Game) gameLoop() error {
 		}
 
 		player.Score += score
-		if err := game.broadcast(VarUpdateScore, VariantUpdateScore{
-			PlayerId:      player.Id,
-			SelectedScore: 0,
-			TurnScore:     score,
-			TotalScore:    player.Score,
-		}); err != nil {
+		if err := game.broadcast(MakeUpdateScore(
+			player.Id,
+			0,
+			score,
+			player.Score,
+		)); err != nil {
 			return err
 		}
 
 		if player.Score >= game.WinningScore {
 			log.Println("Player won the game")
-			if err := game.broadcast(common.VarGameEnd, common.VariantGameEnd{
-				Winners: []uuid.UUID{player.Id},
-			}); err != nil {
+			if err := game.broadcast(common.MakeGameEnd(player.Id)); err != nil {
 				return err
 			}
 			break
@@ -129,10 +111,7 @@ func (game *Game) turnLoop(player *Player) (int, error) {
 		}
 
 		busted := hasBusted(countValues(availableDice))
-		if err := game.broadcast(VarDiceRoll, VariantDiceRoll{
-			Dice:   availableDice,
-			Busted: busted,
-		}); err != nil {
+		if err := game.broadcast(MakeDiceRoll(availableDice, busted)); err != nil {
 			return 0, err
 		}
 
@@ -153,32 +132,23 @@ func (game *Game) turnLoop(player *Player) (int, error) {
 			}
 			log.Println("Next step variant:", nextStep.Variant)
 
-			exitSelection := false
+			endSelection := false
 			switch nextStep.Variant {
 			case VarDiceTouch:
 				var data VariantDiceTouch
-				err := nextStep.UnmarshalData(&data)
-				if err != nil {
+				if err := nextStep.UnmarshalData(&data); err != nil {
 					return 0, err
 				}
 
 				log.Println("Player touched die:", data.DieId, data.Selected)
-				err = touchDie(&availableDice, &selectedDice, data.DieId, data.Selected)
-				if err != nil {
-					message, err := client.MarshalMessage(common.VarError, common.VariantError{
-						Message: err.Error(),
-					})
-					if err != nil {
-						return 0, err
-					}
-
-					err = player.Client.SendMessage(message)
+				if err := touchDie(&availableDice, &selectedDice, data.DieId, data.Selected); err != nil {
+					err = player.Client.SendMessage(common.MakeError(err.Error()))
 					if err != nil {
 						return 0, err
 					}
 				}
 
-				if err := game.broadcast(VarDiceTouch, &data); err != nil {
+				if err := game.broadcast(MakeDiceTouch(data.DieId, data.Selected)); err != nil {
 					return 0, err
 				}
 
@@ -189,68 +159,52 @@ func (game *Game) turnLoop(player *Player) (int, error) {
 				}
 
 				log.Println("Updated scores:", selectedScore, realSelectedScore, turnScore, player.Score)
-				if err := game.broadcast(VarUpdateScore, VariantUpdateScore{
-					PlayerId:      player.Id,
-					SelectedScore: realSelectedScore,
-					TurnScore:     turnScore,
-					TotalScore:    player.Score,
-				}); err != nil {
+				if err := game.broadcast(MakeUpdateScore(
+					player.Id,
+					realSelectedScore,
+					turnScore,
+					player.Score,
+				)); err != nil {
 					return 0, err
 				}
 			case VarScoreRoll:
 				if len(selectedDice) == 0 {
-					message, err := client.MarshalMessage(common.VarError, common.VariantError{
-						Message: "No dice selected",
-					})
-					if err != nil {
-						return 0, err
-					}
-
-					err = player.Client.SendMessage(message)
-					if err != nil {
+					if err := player.Client.SendMessage(common.MakeError("No dice selected")); err != nil {
 						return 0, err
 					}
 					continue
 				}
 
 				if selectedExtra {
-					message, err := client.MarshalMessage(common.VarError, common.VariantError{
-						Message: "Selected extra dice",
-					})
-					if err != nil {
-						return 0, err
-					}
-
-					err = player.Client.SendMessage(message)
-					if err != nil {
+					if err := player.Client.SendMessage(common.MakeError("Selected extra dice")); err != nil {
 						return 0, err
 					}
 					continue
+				}
+
+				if err := game.broadcast(MakeScoreRoll(player.Id)); err != nil {
+					return 0, err
 				}
 
 				rollAgain = true
-				exitSelection = true
+				endSelection = true
 			case VarEndTurn:
 				if selectedExtra {
-					message, err := client.MarshalMessage(common.VarError, common.VariantError{
-						Message: "Selected extra dice",
-					})
-					if err != nil {
-						return 0, err
-					}
-
-					err = player.Client.SendMessage(message)
-					if err != nil {
+					if err := player.Client.SendMessage(common.MakeError("Selected extra dice")); err != nil {
 						return 0, err
 					}
 					continue
 				}
 
+				if err := game.broadcast(MakeEndTurn(player.Id)); err != nil {
+					return 0, err
+				}
+
 				rollAgain = false
-				exitSelection = true
+				endSelection = true
 			}
 
-			if exitSelection {
+			if endSelection {
 				break
 			}
 		}

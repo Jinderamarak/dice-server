@@ -1,6 +1,9 @@
 package common
 
-import "github.com/google/uuid"
+import (
+	"dice-server/internal/client"
+	"github.com/google/uuid"
+)
 
 const (
 	VarGameBegin = "game-begin"
@@ -18,4 +21,16 @@ type VariantGameEnd struct {
 
 type VariantError struct {
 	Message string `json:"message"`
+}
+
+func MakeGameBegin(players ...uuid.UUID) *client.Message {
+	return client.MustMarshalMessage(VarGameBegin, VariantGameBegin{Players: players})
+}
+
+func MakeGameEnd(winners ...uuid.UUID) *client.Message {
+	return client.MustMarshalMessage(VarGameEnd, VariantGameEnd{Winners: winners})
+}
+
+func MakeError(message string) *client.Message {
+	return client.MustMarshalMessage(VarError, VariantError{Message: message})
 }
