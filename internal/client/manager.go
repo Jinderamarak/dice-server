@@ -12,13 +12,13 @@ type ClientManager struct {
 	terminated chan uuid.UUID
 
 	clientsMu sync.Mutex
-	clients   map[uuid.UUID]*Client
+	clients   map[uuid.UUID]*WebSocketClient
 }
 
 func NewClientsManager(upgrader websocket.Upgrader) *ClientManager {
 	return &ClientManager{
 		upgrader:   upgrader,
-		clients:    make(map[uuid.UUID]*Client),
+		clients:    make(map[uuid.UUID]*WebSocketClient),
 		terminated: make(chan uuid.UUID),
 	}
 }
@@ -31,13 +31,13 @@ func (manager *ClientManager) TerminationHandler() {
 	}
 }
 
-func (manager *ClientManager) Upgrade(session uuid.UUID, ctx *gin.Context) (*Client, bool, error) {
+func (manager *ClientManager) Upgrade(session uuid.UUID, ctx *gin.Context) (*WebSocketClient, bool, error) {
 	conn, err := manager.upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
 	if err != nil {
 		return nil, false, err
 	}
 
-	var client *Client
+	var client *WebSocketClient
 	var reconnected bool
 	{
 		manager.clientsMu.Lock()

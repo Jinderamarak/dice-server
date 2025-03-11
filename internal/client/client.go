@@ -11,15 +11,15 @@ var reconnectionTimeout = time.Second * 30
 
 var ErrReconnectionTimeout = errors.New("reconnection timeout")
 
-type Client struct {
+type WebSocketClient struct {
 	conn        *websocket.Conn
 	session     uuid.UUID
 	reconnected chan *websocket.Conn
 	termination chan<- uuid.UUID
 }
 
-func newClient(conn *websocket.Conn, session uuid.UUID, termination chan<- uuid.UUID) *Client {
-	return &Client{
+func newClient(conn *websocket.Conn, session uuid.UUID, termination chan<- uuid.UUID) *WebSocketClient {
+	return &WebSocketClient{
 		conn:        conn,
 		session:     session,
 		reconnected: make(chan *websocket.Conn),
@@ -27,16 +27,16 @@ func newClient(conn *websocket.Conn, session uuid.UUID, termination chan<- uuid.
 	}
 }
 
-func (client *Client) NotifyReconnection(conn *websocket.Conn) {
+func (client *WebSocketClient) NotifyReconnection(conn *websocket.Conn) {
 	client.reconnected <- conn
 }
 
-func (client *Client) Terminate() error {
+func (client *WebSocketClient) Terminate() error {
 	client.termination <- client.session
 	return client.conn.Close()
 }
 
-func (client *Client) waitForReconnection() error {
+func (client *WebSocketClient) waitForReconnection() error {
 	select {
 	case conn := <-client.reconnected:
 		client.conn = conn
@@ -46,7 +46,7 @@ func (client *Client) waitForReconnection() error {
 	}
 }
 
-func (client *Client) SendMessage(message Message) error {
+func (client *WebSocketClient) SendMessage(message Message) error {
 	err := client.conn.WriteJSON(message)
 	switch {
 	case errors.Is(err, websocket.ErrCloseSent):
@@ -62,7 +62,7 @@ func (client *Client) SendMessage(message Message) error {
 	return nil
 }
 
-func (client *Client) ReadMessage() (Message, error) {
+func (client *WebSocketClient) ReadMessage() (Message, error) {
 	var message Message
 	err := client.conn.ReadJSON(&message)
 	switch {
