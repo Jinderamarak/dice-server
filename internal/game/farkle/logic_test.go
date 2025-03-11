@@ -33,25 +33,25 @@ type TestDiceRoller struct {
 	Values []int
 }
 
-func (r *TestDiceRoller) RollDie(die Die) Die {
+func (r *TestDiceRoller) IntN(n int) int {
 	if len(r.Values) == 0 {
-		die.Value = 1
-		return die
+		return 0
 	}
 
-	die.Value = r.Values[0]
+	value := r.Values[0]
 	r.Values = r.Values[1:]
-	return die
+	return value - 1
 }
 
-func prepareDiceRoller() DiceRoller {
-	return &TestDiceRoller{Values: []int{1, 1, 1, 1, 1, 1}}
+func injectDiceRoller() {
+	roller := &TestDiceRoller{Values: []int{1, 1, 1, 1, 1, 1}}
+	common.Roller = roller
 }
 
 func preparePlayer() (*Player, *TestClient) {
-	dice := make([]Die, 6)
+	dice := make([]common.Dice, 6)
 	for i, _ := range dice {
-		dice[i] = Die{Id: uuid.New(), Value: 1}
+		dice[i] = common.NewDice(uuid.New())
 	}
 
 	c := &TestClient{
@@ -67,15 +67,15 @@ func preparePlayer() (*Player, *TestClient) {
 		},
 	}
 
-	return NewPlayer(c, dice), c
+	return NewPlayer(uuid.New(), c, dice), c
 }
 
 func TestGameFlow(t *testing.T) {
 	p1, c1 := preparePlayer()
 	p2, c2 := preparePlayer()
-	roller := prepareDiceRoller()
+	injectDiceRoller()
 
-	game := NewGame(p1, p2, roller)
+	game := NewGame(p1, p2)
 	game.Start()
 
 	printFarkleMessages("Player 1", c1.SendingQueue)

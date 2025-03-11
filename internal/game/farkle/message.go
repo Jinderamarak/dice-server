@@ -2,6 +2,7 @@ package farkle
 
 import (
 	"dice-server/internal/client"
+	"dice-server/internal/game/common"
 	"github.com/google/uuid"
 )
 
@@ -22,8 +23,8 @@ type VariantTurnBegin struct {
 }
 
 type VariantDiceRoll struct {
-	Dice   []Die `json:"dice"`
-	Busted bool  `json:"busted"`
+	Dice   []common.Dice `json:"dice"`
+	Busted bool          `json:"busted"`
 }
 
 type VariantUpdateScore struct {
@@ -34,7 +35,7 @@ type VariantUpdateScore struct {
 }
 
 type VariantDiceTouch struct {
-	DieId    uuid.UUID `json:"dieId"`
+	DiceId   uuid.UUID `json:"dieId"`
 	Selected bool      `json:"selected"`
 }
 
@@ -50,7 +51,7 @@ func MakeTurnBegin(playerId uuid.UUID) *client.Message {
 	return client.MustMarshalMessage(VarTurnBegin, VariantTurnBegin{PlayerId: playerId})
 }
 
-func MakeDiceRoll(dice []Die, busted bool) *client.Message {
+func MakeDiceRoll(dice []common.Dice, busted bool) *client.Message {
 	return client.MustMarshalMessage(VarDiceRoll, VariantDiceRoll{Dice: dice, Busted: busted})
 }
 
@@ -64,7 +65,7 @@ func MakeUpdateScore(playerId uuid.UUID, selectedScore, turnScore, totalScore in
 }
 
 func MakeDiceTouch(dieId uuid.UUID, selected bool) *client.Message {
-	return client.MustMarshalMessage(VarDiceTouch, VariantDiceTouch{DieId: dieId, Selected: selected})
+	return client.MustMarshalMessage(VarDiceTouch, VariantDiceTouch{DiceId: dieId, Selected: selected})
 }
 
 func MakeScoreRoll(playerId uuid.UUID) *client.Message {

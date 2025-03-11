@@ -1,6 +1,9 @@
 package farkle
 
-import "math"
+import (
+	"dice-server/internal/game/common"
+	"math"
+)
 
 const (
 	ScoreFullStraight  = 1500
@@ -8,7 +11,7 @@ const (
 	ScoreLowerStraight = 500
 )
 
-func countValues(dice []Die) map[int]int {
+func countValues(dice []common.Dice) map[int]int {
 	counts := make(map[int]int)
 	for _, die := range dice {
 		counts[die.Value]++

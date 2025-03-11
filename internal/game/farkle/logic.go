@@ -12,14 +12,12 @@ import (
 type Game struct {
 	Players      [2]*Player
 	WinningScore int
-	Roller       DiceRoller
 }
 
-func NewGame(p1, p2 *Player, roller DiceRoller) *Game {
+func NewGame(p1, p2 *Player) *Game {
 	return &Game{
 		Players:      [2]*Player{p1, p2},
 		WinningScore: WinningScore,
-		Roller:       roller,
 	}
 }
 
@@ -102,12 +100,12 @@ func (game *Game) turnLoop(player *Player) (int, error) {
 	log.Println("New turn for player", player.Id)
 
 	turnScore := 0
-	availableDice := player.GetDice(player.DiceIds())
+	availableDice := player.CopyOfDice()
 
 	for {
 		log.Println("Rolling dice")
-		for i, die := range availableDice {
-			availableDice[i] = game.Roller.RollDie(die)
+		for i, dice := range availableDice {
+			availableDice[i] = dice.Roll()
 		}
 
 		busted := hasBusted(countValues(availableDice))
@@ -122,7 +120,7 @@ func (game *Game) turnLoop(player *Player) (int, error) {
 
 		selectedScore := 0
 		selectedExtra := false
-		selectedDice := make([]Die, 0)
+		selectedDice := make([]common.Dice, 0)
 		rollAgain := false
 		for {
 			log.Println("Waiting for players next step")
@@ -140,15 +138,15 @@ func (game *Game) turnLoop(player *Player) (int, error) {
 					return 0, err
 				}
 
-				log.Println("Player touched die:", data.DieId, data.Selected)
-				if err := touchDie(&availableDice, &selectedDice, data.DieId, data.Selected); err != nil {
+				log.Println("Player touched dice:", data.DiceId, data.Selected)
+				if err := touchDie(&availableDice, &selectedDice, data.DiceId, data.Selected); err != nil {
 					err = player.Client.SendMessage(common.MakeError(err.Error()))
 					if err != nil {
 						return 0, err
 					}
 				}
 
-				if err := game.broadcast(MakeDiceTouch(data.DieId, data.Selected)); err != nil {
+				if err := game.broadcast(MakeDiceTouch(data.DiceId, data.Selected)); err != nil {
 					return 0, err
 				}
 
@@ -215,14 +213,14 @@ func (game *Game) turnLoop(player *Player) (int, error) {
 		}
 
 		if len(availableDice) == 0 {
-			availableDice = player.GetDice(player.DiceIds())
+			availableDice = player.CopyOfDice()
 		}
 	}
 
 	return turnScore, nil
 }
 
-func touchDie(available *[]Die, selected *[]Die, dieId uuid.UUID, sel bool) error {
+func touchDie(available *[]common.Dice, selected *[]common.Dice, dieId uuid.UUID, sel bool) error {
 	if sel {
 		for i, die := range *available {
 			if die.Id == dieId {
