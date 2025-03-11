@@ -2,7 +2,9 @@ package farkle
 
 import (
 	"dice-server/internal/client"
+	"dice-server/internal/game/common"
 	"errors"
+	"fmt"
 	"github.com/google/uuid"
 	"testing"
 )
@@ -46,7 +48,7 @@ func prepareDiceRoller() DiceRoller {
 	return &TestDiceRoller{Values: []int{1, 1, 1, 1, 1, 1}}
 }
 
-func preparePlayer() *Player {
+func preparePlayer() (*Player, *TestClient) {
 	dice := make([]Die, 6)
 	for i, _ := range dice {
 		dice[i] = Die{Id: uuid.New(), Value: 1}
@@ -83,14 +85,66 @@ func preparePlayer() *Player {
 		},
 	}
 
-	return NewPlayer(c, dice)
-}
-
-func prepareGame() *Game {
-	return NewGame(preparePlayer(), preparePlayer(), prepareDiceRoller())
+	return NewPlayer(c, dice), c
 }
 
 func TestGameFlow(t *testing.T) {
-	game := prepareGame()
+	p1, c1 := preparePlayer()
+	p2, c2 := preparePlayer()
+	roller := prepareDiceRoller()
+
+	game := NewGame(p1, p2, roller)
 	game.Start()
+
+	printFarkleMessages("Player 1", c1.SendingQueue)
+	printFarkleMessages("Player 2", c2.SendingQueue)
+}
+
+func printFarkleMessages(title string, messages []client.Message) {
+	fmt.Println(title)
+	for _, message := range messages {
+		fmt.Print("  ")
+		printFarkleMessage(message)
+	}
+}
+
+func printFarkleMessage(message client.Message) {
+	switch message.Variant {
+	case common.VarGameBegin:
+		var data common.VariantGameBegin
+		message.MustUnmarshalData(&data)
+		fmt.Println("Game Begin", data)
+	case common.VarGameEnd:
+		var data common.VariantGameEnd
+		message.MustUnmarshalData(&data)
+		fmt.Println("Game End", data)
+	case common.VarError:
+		var data common.VariantError
+		message.MustUnmarshalData(&data)
+		fmt.Println("Error", data)
+	case VarTurnBegin:
+		var data VariantTurnBegin
+		message.MustUnmarshalData(&data)
+		fmt.Println("Farkle Turn Begin", data)
+	case VarDiceRoll:
+		var data VariantDiceRoll
+		message.MustUnmarshalData(&data)
+		fmt.Println("Farkle Dice Roll", data)
+	case VarUpdateScore:
+		var data VariantUpdateScore
+		message.MustUnmarshalData(&data)
+		fmt.Println("Farkle Update Score", data)
+	case VarDiceTouch:
+		var data VariantDiceTouch
+		message.MustUnmarshalData(&data)
+		fmt.Println("Farkle Dice Touch", data)
+	case VarScoreRoll:
+		var data VariantScoreRoll
+		message.MustUnmarshalData(&data)
+		fmt.Println("Farkle Score Roll", data)
+	case VarEndTurn:
+		var data VariantEndTurn
+		message.MustUnmarshalData(&data)
+		fmt.Println("Farkle End Turn", data)
+	}
 }
