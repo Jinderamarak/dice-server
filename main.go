@@ -5,23 +5,25 @@ import (
 	"dice-server/internal/game/common"
 	"dice-server/internal/game/farkle"
 	"errors"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"log"
+	"net/http"
 	"sync"
 )
 
 var manager = client.NewClientsManager(websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
 })
 
 func main() {
 	server := gin.Default()
 	server.Use(CORSMiddleware())
 	server.GET("/game/:id", gameHandler)
-	errors.Unwrap(server.Run("localhost:1234"))
+	errors.Unwrap(server.Run("0.0.0.0:1234"))
 }
 
 func CORSMiddleware() gin.HandlerFunc {
@@ -53,22 +55,23 @@ func gameHandler(ctx *gin.Context) {
 	playerIdStr := ctx.Query("playerId")
 	playerId := uuid.MustParse(playerIdStr)
 
-	fmt.Println("Connection for game", gameId)
-	currentClient, reconnected, _ := manager.Upgrade(uuid.New(), ctx)
+	log.Println("Connection for game", gameId)
+	currentClient, reconnected, _ := manager.Upgrade(playerId, ctx)
 	if reconnected {
-		fmt.Println("Reconnected")
+		log.Println("Reconnected")
 		return
 	}
 
 	otherClient, ok := clients[gameId]
 	if !ok {
 		clientsMu.Lock()
-		defer clientsMu.Unlock()
-
 		clients[gameId] = tempPlayer{
 			id: playerId,
 			c:  currentClient,
 		}
+		clientsMu.Unlock()
+
+		log.Println("Waiting for other player")
 		return
 	}
 
