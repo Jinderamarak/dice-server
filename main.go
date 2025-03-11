@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"sync"
 )
 
 var manager = client.NewClientsManager(websocket.Upgrader{
@@ -39,10 +40,18 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 }
 
-var clients = make(map[string]common.Client)
+type tempPlayer struct {
+	id uuid.UUID
+	c  common.Client
+}
+
+var clientsMu = sync.Mutex{}
+var clients = make(map[string]tempPlayer)
 
 func gameHandler(ctx *gin.Context) {
 	gameId := ctx.Param("id")
+	playerIdStr := ctx.Request.Header.Get("Authorization")
+	playerId := uuid.MustParse(playerIdStr)
 
 	fmt.Println("Connection for game", gameId)
 	currentClient, reconnected, _ := manager.Upgrade(uuid.New(), ctx)
@@ -53,15 +62,23 @@ func gameHandler(ctx *gin.Context) {
 
 	otherClient, ok := clients[gameId]
 	if !ok {
-		clients[gameId] = currentClient
+		clientsMu.Lock()
+		defer clientsMu.Unlock()
+
+		clients[gameId] = tempPlayer{
+			id: playerId,
+			c:  currentClient,
+		}
 		return
 	}
 
+	clientsMu.Lock()
 	delete(clients, gameId)
-	currentPlayer := farkle.RandomPlayer(currentClient)
-	otherPlayer := farkle.RandomPlayer(otherClient)
+	clientsMu.Unlock()
 
-	roller := farkle.RandomDiceRoller{}
-	game := farkle.NewGame(currentPlayer, otherPlayer, &roller)
-	game.Start()
+	currentPlayer := farkle.NewPlayer(playerId, currentClient, common.NewRandomDiceSet(6))
+	otherPlayer := farkle.NewPlayer(otherClient.id, otherClient.c, common.NewRandomDiceSet(6))
+
+	game := farkle.NewGame(currentPlayer, otherPlayer, 1000)
+	go game.Start()
 }

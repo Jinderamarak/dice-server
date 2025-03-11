@@ -5,9 +5,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const DicePerPlayer = 6
-const WinningScore = 1000
-
 type Player struct {
 	Id      uuid.UUID
 	DiceSet []common.Dice

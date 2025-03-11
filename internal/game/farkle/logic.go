@@ -13,10 +13,10 @@ type Game struct {
 	WinningScore int
 }
 
-func NewGame(p1, p2 *Player) *Game {
+func NewGame(p1, p2 *Player, winningScore int) *Game {
 	return &Game{
 		Players:      [2]*Player{p1, p2},
-		WinningScore: WinningScore,
+		WinningScore: winningScore,
 	}
 }
 

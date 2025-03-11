@@ -29,3 +29,11 @@ func (dice *Dice) Roll() Dice {
 		Value: Roller.IntN(6) + 1,
 	}
 }
+
+func NewRandomDiceSet(n int) []Dice {
+	diceSet := make([]Dice, n)
+	for i := 0; i < n; i++ {
+		diceSet[i] = NewDice(uuid.New())
+	}
+	return diceSet
+}
