@@ -46,7 +46,7 @@ func (client *WebSocketClient) waitForReconnection() error {
 	}
 }
 
-func (client *WebSocketClient) SendMessage(message Message) error {
+func (client *WebSocketClient) SendMessage(message *Message) error {
 	err := client.conn.WriteJSON(message)
 	switch {
 	case errors.Is(err, websocket.ErrCloseSent):
@@ -62,19 +62,19 @@ func (client *WebSocketClient) SendMessage(message Message) error {
 	return nil
 }
 
-func (client *WebSocketClient) ReadMessage() (Message, error) {
+func (client *WebSocketClient) ReadMessage() (*Message, error) {
 	var message Message
 	err := client.conn.ReadJSON(&message)
 	switch {
 	case errors.Is(err, websocket.ErrCloseSent):
 		if err = client.waitForReconnection(); err != nil {
-			return Message{}, err
+			return nil, err
 		}
 		if err = client.conn.ReadJSON(&message); err != nil {
-			return Message{}, err
+			return nil, err
 		}
 	case err != nil:
-		return Message{}, err
+		return nil, err
 	}
-	return message, nil
+	return &message, nil
 }

@@ -10,18 +10,18 @@ import (
 )
 
 type TestClient struct {
-	SendingQueue   []client.Message
-	ReceivingQueue []client.Message
+	SendingQueue   []*client.Message
+	ReceivingQueue []*client.Message
 }
 
-func (c *TestClient) SendMessage(message client.Message) error {
+func (c *TestClient) SendMessage(message *client.Message) error {
 	c.SendingQueue = append(c.SendingQueue, message)
 	return nil
 }
 
-func (c *TestClient) ReadMessage() (client.Message, error) {
+func (c *TestClient) ReadMessage() (*client.Message, error) {
 	if len(c.ReceivingQueue) == 0 {
-		return client.Message{}, errors.New("no messages to read")
+		return &client.Message{}, errors.New("no messages to read")
 	}
 
 	message := c.ReceivingQueue[0]
@@ -55,8 +55,8 @@ func preparePlayer() (*Player, *TestClient) {
 	}
 
 	c := &TestClient{
-		SendingQueue: []client.Message{},
-		ReceivingQueue: []client.Message{
+		SendingQueue: []*client.Message{},
+		ReceivingQueue: []*client.Message{
 			client.MustMarshalMessage(VarDiceTouch, VariantDiceTouch{
 				DieId:    dice[0].Id,
 				Selected: true,
@@ -100,7 +100,7 @@ func TestGameFlow(t *testing.T) {
 	printFarkleMessages("Player 2", c2.SendingQueue)
 }
 
-func printFarkleMessages(title string, messages []client.Message) {
+func printFarkleMessages(title string, messages []*client.Message) {
 	fmt.Println(title)
 	for _, message := range messages {
 		fmt.Print("  ")
@@ -108,7 +108,7 @@ func printFarkleMessages(title string, messages []client.Message) {
 	}
 }
 
-func printFarkleMessage(message client.Message) {
+func printFarkleMessage(message *client.Message) {
 	switch message.Variant {
 	case common.VarGameBegin:
 		var data common.VariantGameBegin

@@ -7,20 +7,20 @@ type Message struct {
 	data    *json.RawMessage
 }
 
-func MarshalMessage(variant string, data interface{}) (Message, error) {
+func MarshalMessage(variant string, data interface{}) (*Message, error) {
 	raw, err := json.Marshal(data)
 	if err != nil {
-		return Message{}, err
+		return nil, err
 	}
 
 	message := Message{
 		Variant: variant,
 		data:    (*json.RawMessage)(&raw),
 	}
-	return message, nil
+	return &message, nil
 }
 
-func MustMarshalMessage(variant string, data interface{}) Message {
+func MustMarshalMessage(variant string, data interface{}) *Message {
 	message, err := MarshalMessage(variant, data)
 	if err != nil {
 		panic(err)
