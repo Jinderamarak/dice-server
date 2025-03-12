@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"testing"
+	"time"
 )
 
 type TestClient struct {
@@ -14,12 +15,11 @@ type TestClient struct {
 	ReceivingQueue []*client.Message
 }
 
-func (c *TestClient) SendMessage(message *client.Message) error {
+func (c *TestClient) SendMessage(message *client.Message) {
 	c.SendingQueue = append(c.SendingQueue, message)
-	return nil
 }
 
-func (c *TestClient) ReadMessage() (*client.Message, error) {
+func (c *TestClient) ReadMessage(_ time.Duration) (*client.Message, error) {
 	if len(c.ReceivingQueue) == 0 {
 		return &client.Message{}, errors.New("no messages to read")
 	}
@@ -27,6 +27,9 @@ func (c *TestClient) ReadMessage() (*client.Message, error) {
 	message := c.ReceivingQueue[0]
 	c.ReceivingQueue = c.ReceivingQueue[1:]
 	return message, nil
+}
+
+func (*TestClient) Close() {
 }
 
 type TestDiceRoller struct {

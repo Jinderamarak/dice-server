@@ -14,12 +14,12 @@ import (
 )
 
 var manager = client.NewClientsManager(websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin:     func(r *http.Request) bool { return true },
+	CheckOrigin: func(r *http.Request) bool { return true },
 })
 
 func main() {
+	go manager.ClosureHandler()
+
 	server := gin.Default()
 	server.Use(CORSMiddleware())
 	server.GET("/game/:id", gameHandler)

@@ -3,10 +3,14 @@ package farkle
 import (
 	"dice-server/internal/client"
 	"dice-server/internal/game/common"
+	"errors"
 	"github.com/google/uuid"
 	"log"
 	"math/rand"
+	"time"
 )
+
+const EndSleep = 10 * time.Second
 
 type Game struct {
 	Players      [2]*Player
@@ -20,40 +24,40 @@ func NewGame(p1, p2 *Player, winningScore int) *Game {
 	}
 }
 
-func (game *Game) broadcast(message *client.Message) error {
+func (game *Game) broadcast(message *client.Message) {
 	for _, player := range game.Players {
-		err := player.Client.SendMessage(message)
-		if err != nil {
-			return err
-		}
+		player.Client.SendMessage(message)
 	}
-	return nil
 }
 
 func (game *Game) Start() {
+	defer func() {
+		for _, p := range game.Players {
+			p.Client.Close()
+		}
+	}()
+
 	log.Println("Starting game of Farkle")
 	err := game.begin()
 	if err != nil {
-		log.Println(err)
+		log.Println("Game terminated:", err)
 
 		errorMessage := common.MakeError(err.Error())
 		for _, player := range game.Players {
-			err := player.Client.SendMessage(errorMessage)
-			if err != nil {
-				log.Println("Failed to send error message")
-			}
+			player.Client.SendMessage(errorMessage)
 		}
 	}
+
+	log.Println("Game ended, waiting")
+	time.Sleep(EndSleep)
+	log.Println("Game closed")
 }
 
 func (game *Game) begin() error {
-	err := game.broadcast(common.MakeGameBegin(
+	game.broadcast(common.MakeGameBegin(
 		game.Players[0].Id,
 		game.Players[1].Id,
 	))
-	if err != nil {
-		return err
-	}
 
 	return game.gameLoop()
 }
@@ -64,9 +68,7 @@ func (game *Game) gameLoop() error {
 		currentPlayer = (currentPlayer + 1) % len(game.Players)
 		player := game.Players[currentPlayer]
 
-		if err := game.broadcast(MakeTurnBegin(player.Id)); err != nil {
-			return err
-		}
+		game.broadcast(MakeTurnBegin(player.Id))
 
 		score, err := game.turnLoop(player)
 		if err != nil {
@@ -74,20 +76,16 @@ func (game *Game) gameLoop() error {
 		}
 
 		player.Score += score
-		if err := game.broadcast(MakeUpdateScore(
+		game.broadcast(MakeUpdateScore(
 			player.Id,
 			0,
 			score,
 			player.Score,
-		)); err != nil {
-			return err
-		}
+		))
 
 		if player.Score >= game.WinningScore {
 			log.Println("Player won the game")
-			if err := game.broadcast(common.MakeGameEnd(player.Id)); err != nil {
-				return err
-			}
+			game.broadcast(common.MakeGameEnd(player.Id))
 			break
 		}
 	}
@@ -108,9 +106,7 @@ func (game *Game) turnLoop(player *Player) (int, error) {
 		}
 
 		busted := hasBusted(countValues(availableDice))
-		if err := game.broadcast(MakeDiceRoll(availableDice, busted)); err != nil {
-			return 0, err
-		}
+		game.broadcast(MakeDiceRoll(availableDice, busted))
 
 		if busted {
 			log.Println("Player busted")
@@ -123,8 +119,11 @@ func (game *Game) turnLoop(player *Player) (int, error) {
 		rollAgain := false
 		for {
 			log.Println("Waiting for players next step")
-			nextStep, err := player.Client.ReadMessage()
+			nextStep, err := player.Client.ReadMessage(time.Second * 60)
 			if err != nil {
+				if errors.Is(err, client.ErrReadTimeout) {
+					return 0, nil
+				}
 				return 0, err
 			}
 			log.Println("Next step variant:", nextStep.Variant)
@@ -139,14 +138,10 @@ func (game *Game) turnLoop(player *Player) (int, error) {
 
 				log.Println("Player touched dice:", data.DiceId, data.Selected)
 				if !touchDice(&availableDice, &selectedDice, data.DiceId, data.Selected) {
-					if err := player.Client.SendMessage(common.MakeError("Unknown dice")); err != nil {
-						return 0, err
-					}
+					player.Client.SendMessage(common.MakeError("Unknown dice"))
 				}
 
-				if err := game.broadcast(MakeDiceTouch(data.DiceId, data.Selected)); err != nil {
-					return 0, err
-				}
+				game.broadcast(MakeDiceTouch(data.DiceId, data.Selected))
 
 				selectedScore, selectedExtra = scoreCounts(countValues(selectedDice))
 				realSelectedScore := selectedScore
@@ -155,46 +150,34 @@ func (game *Game) turnLoop(player *Player) (int, error) {
 				}
 
 				log.Println("Updated scores:", selectedScore, realSelectedScore, turnScore, player.Score)
-				if err := game.broadcast(MakeUpdateScore(
+				game.broadcast(MakeUpdateScore(
 					player.Id,
 					realSelectedScore,
 					turnScore,
 					player.Score,
-				)); err != nil {
-					return 0, err
-				}
+				))
 			case VarScoreRoll:
 				if len(selectedDice) == 0 {
-					if err := player.Client.SendMessage(common.MakeError("No dice selected")); err != nil {
-						return 0, err
-					}
+					player.Client.SendMessage(common.MakeError("No dice selected"))
 					continue
 				}
 
 				if selectedExtra {
-					if err := player.Client.SendMessage(common.MakeError("Selected extra dice")); err != nil {
-						return 0, err
-					}
+					player.Client.SendMessage(common.MakeError("Selected extra dice"))
 					continue
 				}
 
-				if err := game.broadcast(MakeScoreRoll(player.Id)); err != nil {
-					return 0, err
-				}
+				game.broadcast(MakeScoreRoll(player.Id))
 
 				rollAgain = true
 				endSelection = true
 			case VarEndTurn:
 				if selectedExtra {
-					if err := player.Client.SendMessage(common.MakeError("Selected extra dice")); err != nil {
-						return 0, err
-					}
+					player.Client.SendMessage(common.MakeError("Selected extra dice"))
 					continue
 				}
 
-				if err := game.broadcast(MakeEndTurn(player.Id)); err != nil {
-					return 0, err
-				}
+				game.broadcast(MakeEndTurn(player.Id))
 
 				rollAgain = false
 				endSelection = true
