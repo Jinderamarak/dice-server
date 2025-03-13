@@ -26,6 +26,7 @@ func NewClientsManager(upgrader websocket.Upgrader) *ClientManager {
 
 func (manager *ClientManager) ClosureHandler() {
 	for session := range manager.closed {
+		log.Println("Removing session:", session)
 		manager.clientsMu.Lock()
 		delete(manager.clients, session)
 		manager.clientsMu.Unlock()

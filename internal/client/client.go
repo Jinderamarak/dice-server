@@ -11,7 +11,7 @@ import (
 
 const messageLimit = 32
 
-var reconnectionTimeout = time.Second * 60
+var reconnectionTimeout = time.Second * 30
 
 var ErrReconnectionTimeout = errors.New("reconnection timeout")
 var ErrClientClosed = errors.New("client is closed")
@@ -43,7 +43,7 @@ func newClient(conn *websocket.Conn, session uuid.UUID, closure chan<- uuid.UUID
 		closed:      atomic.Bool{},
 		incoming:    make(chan *Message, messageLimit),
 		outgoing:    make(chan *Message, messageLimit),
-		errors:      make(chan error),
+		errors:      make(chan error, messageLimit),
 	}
 
 	go client.readingLoop()
@@ -118,6 +118,7 @@ func (client *WebSocketClient) waitForReconnection() error {
 		client.reconnected = make(chan struct{})
 		return nil
 	case <-time.After(reconnectionTimeout):
+		log.Println("Reconnection timeout")
 		return ErrReconnectionTimeout
 	}
 }
@@ -143,6 +144,12 @@ func (client *WebSocketClient) Close() {
 	_ = client.conn.Close()
 
 	client.closure <- client.session
+
+	close(client.reconnect)
+}
+
+func (client *WebSocketClient) IsClosed() bool {
+	return client.closed.Load()
 }
 
 func (client *WebSocketClient) SendMessage(message *Message) {

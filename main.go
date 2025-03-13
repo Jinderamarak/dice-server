@@ -22,7 +22,7 @@ func main() {
 
 	server := gin.Default()
 	server.Use(CORSMiddleware())
-	server.GET("/game/:id", gameHandler)
+	server.GET("/api/game/:id", gameHandler)
 	errors.Unwrap(server.Run("0.0.0.0:9000"))
 }
 
@@ -44,7 +44,7 @@ func CORSMiddleware() gin.HandlerFunc {
 
 type tempPlayer struct {
 	id uuid.UUID
-	c  common.Client
+	c  *client.WebSocketClient
 }
 
 var clientsMu = sync.Mutex{}
@@ -63,7 +63,7 @@ func gameHandler(ctx *gin.Context) {
 	}
 
 	otherClient, ok := clients[gameId]
-	if !ok {
+	if !ok || otherClient.c.IsClosed() {
 		clientsMu.Lock()
 		clients[gameId] = tempPlayer{
 			id: playerId,
