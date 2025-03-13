@@ -21,4 +21,4 @@ COPY --from=builder /build/app /app/dice-server
 
 EXPOSE 9000
 ENV GIN_MODE=release
-CMD ["./dice-server"]
+ENTRYPOINT ["/app/dice-server"]
