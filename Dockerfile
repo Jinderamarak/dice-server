@@ -4,7 +4,7 @@ ARG TARGETOS
 ARG TARGETARCH
 
 # Build step
-FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1 as builder
+FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1 AS builder
 WORKDIR /build
 
 COPY go.mod go.sum ./
