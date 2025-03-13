@@ -1,11 +1,9 @@
-ARG TARGETPLATFORM
-ARG BUILDPLATFORM
-ARG TARGETOS
-ARG TARGETARCH
-
 # Build step
 FROM --platform=${BUILDPLATFORM} golang:1 AS builder
 WORKDIR /build
+
+ARG TARGETOS
+ARG TARGETARCH
 
 COPY go.mod go.sum ./
 RUN go mod download
