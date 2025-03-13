@@ -12,7 +12,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o app main.go
 
 # Runtime step
-FROM --platform=${TARGETPLATFORM} scratch
+FROM scratch
 WORKDIR /app
 
 COPY --from=builder /build/app /app/dice-server
