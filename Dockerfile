@@ -4,7 +4,7 @@ ARG TARGETOS
 ARG TARGETARCH
 
 # Build step
-FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1 AS builder
+FROM --platform=${BUILDPLATFORM} golang:1 AS builder
 WORKDIR /build
 
 COPY go.mod go.sum ./
@@ -14,7 +14,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o app main.go
 
 # Runtime step
-FROM --platform=${TARGETPLATFORM:-linux/amd64} scratch
+FROM --platform=${TARGETPLATFORM} scratch
 WORKDIR /app
 
 COPY --from=builder /build/app /app/dice-server
