@@ -23,7 +23,7 @@ func main() {
 	server := gin.Default()
 	server.Use(CORSMiddleware())
 	server.GET("/game/:id", gameHandler)
-	errors.Unwrap(server.Run("0.0.0.0:1234"))
+	errors.Unwrap(server.Run("0.0.0.0:9000"))
 }
 
 func CORSMiddleware() gin.HandlerFunc {
