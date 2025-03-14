@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
 )
 
@@ -52,8 +53,15 @@ var clients = make(map[string]tempPlayer)
 
 func gameHandler(ctx *gin.Context) {
 	gameId := ctx.Param("id")
+
 	playerIdStr := ctx.Query("playerId")
 	playerId := uuid.MustParse(playerIdStr)
+
+	targetStr := ctx.Query("target")
+	target, err := strconv.Atoi(targetStr)
+	if err != nil {
+		target = 3000
+	}
 
 	log.Println("Connection for game", gameId)
 	currentClient, reconnected, _ := manager.Upgrade(playerId, ctx)
@@ -82,6 +90,6 @@ func gameHandler(ctx *gin.Context) {
 	currentPlayer := farkle.NewPlayer(playerId, currentClient, common.NewRandomDiceSet(6))
 	otherPlayer := farkle.NewPlayer(otherClient.id, otherClient.c, common.NewRandomDiceSet(6))
 
-	game := farkle.NewGame(currentPlayer, otherPlayer, 1000)
+	game := farkle.NewGame(currentPlayer, otherPlayer, target)
 	go game.Start()
 }
