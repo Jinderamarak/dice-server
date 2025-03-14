@@ -44,8 +44,9 @@ func CORSMiddleware() gin.HandlerFunc {
 }
 
 type tempPlayer struct {
-	id uuid.UUID
-	c  *client.WebSocketClient
+	id          uuid.UUID
+	c           *client.WebSocketClient
+	targetScore int
 }
 
 var clientsMu = sync.Mutex{}
@@ -57,10 +58,10 @@ func gameHandler(ctx *gin.Context) {
 	playerIdStr := ctx.Query("playerId")
 	playerId := uuid.MustParse(playerIdStr)
 
-	targetStr := ctx.Query("target")
-	target, err := strconv.Atoi(targetStr)
+	targetScoreStr := ctx.Query("targetScore")
+	targetScore, err := strconv.Atoi(targetScoreStr)
 	if err != nil {
-		target = 3000
+		targetScore = 3000
 	}
 
 	log.Println("Connection for game", gameId)
@@ -74,8 +75,9 @@ func gameHandler(ctx *gin.Context) {
 	if !ok || otherClient.c.IsClosed() {
 		clientsMu.Lock()
 		clients[gameId] = tempPlayer{
-			id: playerId,
-			c:  currentClient,
+			id:          playerId,
+			c:           currentClient,
+			targetScore: targetScore,
 		}
 		clientsMu.Unlock()
 
@@ -90,6 +92,6 @@ func gameHandler(ctx *gin.Context) {
 	currentPlayer := farkle.NewPlayer(playerId, currentClient, common.NewRandomDiceSet(6))
 	otherPlayer := farkle.NewPlayer(otherClient.id, otherClient.c, common.NewRandomDiceSet(6))
 
-	game := farkle.NewGame(currentPlayer, otherPlayer, target)
+	game := farkle.NewGame(currentPlayer, otherPlayer, otherClient.targetScore)
 	go game.Start()
 }

@@ -37,7 +37,7 @@ func (game *Game) Start() {
 		}
 	}()
 
-	log.Println("Starting game of Farkle")
+	log.Println("Starting game of Farkle with score ", game.WinningScore)
 	err := game.begin()
 	if err != nil {
 		log.Println("Game terminated:", err)
