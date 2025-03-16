@@ -15,7 +15,7 @@ func ValidateUserMessage(message *Message) error {
 		return ErrNilMessage
 	}
 
-	if len(*message.Data) > maxDataLength {
+	if message.Data != nil && len(*message.Data) > maxDataLength {
 		return ErrDataTooLong
 	}
 
