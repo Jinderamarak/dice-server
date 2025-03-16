@@ -36,14 +36,14 @@ func main() {
 	}(rabbitConnection)
 
 	server := gin.Default()
-	server.Use(CORSMiddleware())
+	server.Use(corsMiddleware())
 	server.GET("/api/portal/:auth", portalHandler)
 	if err := server.Run(serverHost); err != nil {
 		panic(err)
 	}
 }
 
-func CORSMiddleware() gin.HandlerFunc {
+func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
