@@ -104,7 +104,7 @@ func openPortal(player *channel.WebSocketChannel, server *channel.RabbitChannel,
 		case msg := <-player.ReadChannel():
 			if err := message.ValidateUserMessage(msg); err != nil {
 				log.Println("invalid message from websocket:", err)
-				_ = player.WriteMessage(message.CraftControlError("control-validate", err.Error()))
+				_ = player.WriteMessage(message.CraftControlError("control-validate", "sent control message"))
 				continue
 			}
 
