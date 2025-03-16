@@ -3,7 +3,6 @@ package main
 import (
 	"dice-server/internal/auth/token"
 	"dice-server/internal/channel"
-	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -27,7 +26,7 @@ var rabbitConnection *amqp.Connection
 func main() {
 	rabbit, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	if err != nil {
-		errors.Unwrap(err)
+		panic(err)
 	}
 
 	rabbitConnection = rabbit
@@ -38,7 +37,9 @@ func main() {
 	server := gin.Default()
 	server.Use(CORSMiddleware())
 	server.GET("/api/portal/:auth", portalHandler)
-	errors.Unwrap(server.Run(serverHost))
+	if err := server.Run(serverHost); err != nil {
+		panic(err)
+	}
 }
 
 func CORSMiddleware() gin.HandlerFunc {
@@ -94,13 +95,11 @@ func openPortal(web *channel.WebSocketChannel, rabbit *channel.RabbitChannel) {
 	for {
 		select {
 		case message := <-web.ReadChannel():
-			err := rabbit.SendMessage(message)
-			if err != nil {
+			if err := rabbit.SendMessage(message); err != nil {
 				log.Println("failed to send message to rabbit:", err)
 			}
 		case message := <-rabbit.ReadChannel():
-			err := web.WriteMessage(message)
-			if err != nil {
+			if err := web.WriteMessage(message); err != nil {
 				log.Println("failed to send message to websocket:", err)
 			}
 		case <-web.Closed():

@@ -103,8 +103,7 @@ func (client *RabbitChannel) readingLoop() {
 			}
 
 			var message Message
-			err := message.Unmarshal(delivery.Body)
-			if err != nil {
+			if err := message.Unmarshal(delivery.Body); err != nil {
 				log.Println("failed to unmarshal message:", err)
 				continue
 			}

@@ -41,8 +41,7 @@ func (message *Message) UnmarshalData(data interface{}) error {
 }
 
 func (message *Message) MustUnmarshalData(data interface{}) {
-	err := message.UnmarshalData(data)
-	if err != nil {
+	if err := message.UnmarshalData(data); err != nil {
 		panic(err)
 	}
 }

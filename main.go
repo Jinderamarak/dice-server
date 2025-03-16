@@ -4,7 +4,6 @@ import (
 	"dice-server/internal/client"
 	"dice-server/internal/game/common"
 	"dice-server/internal/game/farkle"
-	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -24,7 +23,9 @@ func main() {
 	server := gin.Default()
 	server.Use(CORSMiddleware())
 	server.GET("/api/game/:id", gameHandler)
-	errors.Unwrap(server.Run("0.0.0.0:9000"))
+	if err := server.Run("0.0.0.0:9000"); err != nil {
+		panic(err)
+	}
 }
 
 func CORSMiddleware() gin.HandlerFunc {
