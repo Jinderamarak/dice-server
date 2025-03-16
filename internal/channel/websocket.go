@@ -37,8 +37,8 @@ func NewWebSocketChannel(conn *websocket.Conn) *WebSocketChannel {
 
 func (client *WebSocketChannel) readingLoop() {
 	for {
-		var message message.Message
-		err := client.conn.ReadJSON(&message)
+		var msg message.Message
+		err := client.conn.ReadJSON(&msg)
 
 		switch {
 		case websocket.IsUnexpectedCloseError(err):
@@ -51,7 +51,7 @@ func (client *WebSocketChannel) readingLoop() {
 		}
 
 		select {
-		case client.incoming <- &message:
+		case client.incoming <- &msg:
 		default:
 			log.Println("dropped incoming message")
 		}
@@ -63,8 +63,8 @@ func (client *WebSocketChannel) writingLoop() {
 		select {
 		case <-client.closing:
 			return
-		case message := <-client.outgoing:
-			err := client.conn.WriteJSON(message)
+		case msg := <-client.outgoing:
+			err := client.conn.WriteJSON(msg)
 			switch {
 			case websocket.IsUnexpectedCloseError(err):
 				log.Println("unexpected close error:", err)
@@ -99,16 +99,16 @@ func (client *WebSocketChannel) ReadMessage(timeout time.Duration) (*message.Mes
 		select {
 		case <-client.closing:
 			return nil, ErrClientClosed
-		case message := <-client.incoming:
-			return message, nil
+		case msg := <-client.incoming:
+			return msg, nil
 		}
 	}
 
 	select {
 	case <-client.closing:
 		return nil, ErrClientClosed
-	case message := <-client.incoming:
-		return message, nil
+	case msg := <-client.incoming:
+		return msg, nil
 	case <-time.After(timeout):
 		return nil, ErrReadTimeout
 	}

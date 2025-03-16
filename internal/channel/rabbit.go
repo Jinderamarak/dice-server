@@ -103,14 +103,14 @@ func (client *RabbitChannel) readingLoop() {
 				return
 			}
 
-			var message message.Message
-			if err := message.Unmarshal(delivery.Body); err != nil {
+			var msg message.Message
+			if err := msg.Unmarshal(delivery.Body); err != nil {
 				log.Println("failed to unmarshal message:", err)
 				continue
 			}
 
 			select {
-			case client.incoming <- &message:
+			case client.incoming <- &msg:
 			default:
 				log.Println("dropped incoming message")
 			}
@@ -123,8 +123,8 @@ func (client *RabbitChannel) writingLoop() {
 		select {
 		case <-client.closing:
 			return
-		case message := <-client.outgoing:
-			data, err := message.Marshal()
+		case msg := <-client.outgoing:
+			data, err := msg.Marshal()
 			if err != nil {
 				log.Println("failed to marshal message:", err)
 				continue
@@ -168,16 +168,16 @@ func (client *RabbitChannel) ReadMessage(timeout time.Duration) (*message.Messag
 		select {
 		case <-client.closing:
 			return nil, ErrClientClosed
-		case message := <-client.incoming:
-			return message, nil
+		case msg := <-client.incoming:
+			return msg, nil
 		}
 	}
 
 	select {
 	case <-client.closing:
 		return nil, ErrClientClosed
-	case message := <-client.incoming:
-		return message, nil
+	case msg := <-client.incoming:
+		return msg, nil
 	case <-time.After(timeout):
 		return nil, ErrReadTimeout
 	}
