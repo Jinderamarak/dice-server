@@ -1,6 +1,7 @@
 package channel
 
 import (
+	"dice-server/internal/channel/message"
 	"github.com/gorilla/websocket"
 	"log"
 	"sync/atomic"
@@ -10,8 +11,8 @@ import (
 type WebSocketChannel struct {
 	conn *websocket.Conn
 
-	incoming chan *Message
-	outgoing chan *Message
+	incoming chan *message.Message
+	outgoing chan *message.Message
 	closing  chan struct{}
 	closed   atomic.Bool
 }
@@ -23,8 +24,8 @@ func NewWebSocketChannel(conn *websocket.Conn) *WebSocketChannel {
 
 	client := &WebSocketChannel{
 		conn:     conn,
-		incoming: make(chan *Message, MessageLimit),
-		outgoing: make(chan *Message, MessageLimit),
+		incoming: make(chan *message.Message, MessageLimit),
+		outgoing: make(chan *message.Message, MessageLimit),
 		closing:  make(chan struct{}),
 		closed:   atomic.Bool{},
 	}
@@ -36,7 +37,7 @@ func NewWebSocketChannel(conn *websocket.Conn) *WebSocketChannel {
 
 func (client *WebSocketChannel) readingLoop() {
 	for {
-		var message Message
+		var message message.Message
 		err := client.conn.ReadJSON(&message)
 
 		switch {
@@ -84,7 +85,7 @@ func (client *WebSocketChannel) Close() {
 	}
 }
 
-func (client *WebSocketChannel) WriteMessage(message *Message) error {
+func (client *WebSocketChannel) WriteMessage(message *message.Message) error {
 	select {
 	case client.outgoing <- message:
 		return nil
@@ -93,7 +94,7 @@ func (client *WebSocketChannel) WriteMessage(message *Message) error {
 	}
 }
 
-func (client *WebSocketChannel) ReadMessage(timeout time.Duration) (*Message, error) {
+func (client *WebSocketChannel) ReadMessage(timeout time.Duration) (*message.Message, error) {
 	if timeout == 0 {
 		select {
 		case <-client.closing:
@@ -113,7 +114,7 @@ func (client *WebSocketChannel) ReadMessage(timeout time.Duration) (*Message, er
 	}
 }
 
-func (client *WebSocketChannel) ReadChannel() <-chan *Message {
+func (client *WebSocketChannel) ReadChannel() <-chan *message.Message {
 	return client.incoming
 }
 

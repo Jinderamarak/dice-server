@@ -1,6 +1,7 @@
 package channel
 
 import (
+	"dice-server/internal/channel/message"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 	"sync/atomic"
@@ -13,8 +14,8 @@ type RabbitChannel struct {
 	readQueue  amqp.Queue
 	consumer   <-chan amqp.Delivery
 
-	incoming chan *Message
-	outgoing chan *Message
+	incoming chan *message.Message
+	outgoing chan *message.Message
 	closing  chan struct{}
 	closed   atomic.Bool
 }
@@ -57,8 +58,8 @@ func OpenRabbitChannel(conn *amqp.Connection, writeTopic, readTopic string) (*Ra
 		writeQueue: writeQueue,
 		readQueue:  readQueue,
 		consumer:   consumer,
-		incoming:   make(chan *Message, MessageLimit),
-		outgoing:   make(chan *Message, MessageLimit),
+		incoming:   make(chan *message.Message, MessageLimit),
+		outgoing:   make(chan *message.Message, MessageLimit),
 		closing:    make(chan struct{}),
 		closed:     atomic.Bool{},
 	}
@@ -102,7 +103,7 @@ func (client *RabbitChannel) readingLoop() {
 				return
 			}
 
-			var message Message
+			var message message.Message
 			if err := message.Unmarshal(delivery.Body); err != nil {
 				log.Println("failed to unmarshal message:", err)
 				continue
@@ -153,7 +154,7 @@ func (client *RabbitChannel) Close() {
 	}
 }
 
-func (client *RabbitChannel) SendMessage(message *Message) error {
+func (client *RabbitChannel) SendMessage(message *message.Message) error {
 	select {
 	case client.outgoing <- message:
 		return nil
@@ -162,7 +163,7 @@ func (client *RabbitChannel) SendMessage(message *Message) error {
 	}
 }
 
-func (client *RabbitChannel) ReadMessage(timeout time.Duration) (*Message, error) {
+func (client *RabbitChannel) ReadMessage(timeout time.Duration) (*message.Message, error) {
 	if timeout == 0 {
 		select {
 		case <-client.closing:
@@ -182,7 +183,7 @@ func (client *RabbitChannel) ReadMessage(timeout time.Duration) (*Message, error
 	}
 }
 
-func (client *RabbitChannel) ReadChannel() <-chan *Message {
+func (client *RabbitChannel) ReadChannel() <-chan *message.Message {
 	return client.incoming
 }
 

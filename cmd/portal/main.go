@@ -3,6 +3,7 @@ package main
 import (
 	"dice-server/internal/auth/token"
 	"dice-server/internal/channel"
+	message "dice-server/internal/channel/message"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -85,30 +86,46 @@ func portalHandler(ctx *gin.Context) {
 
 	log.Printf("Opening portal between user %s and game %s\n", gameToken.UserId, gameToken.GameId)
 	log.Printf("  - %s\n  - %s\n", writeTopic, readTopic)
-	go openPortal(wsChannel, rabbitChannel)
+	go openPortal(wsChannel, rabbitChannel, gameToken)
 }
 
-func openPortal(web *channel.WebSocketChannel, rabbit *channel.RabbitChannel) {
-	defer web.Close()
-	defer rabbit.Close()
+func openPortal(player *channel.WebSocketChannel, server *channel.RabbitChannel, gameToken *token.GameToken) {
+	defer player.Close()
+	defer server.Close()
+
+	if err := server.SendMessage(message.CraftControlConnected(gameToken.UserId)); err != nil {
+		log.Println("failed to send connected message to rabbit")
+		_ = player.WriteMessage(message.CraftControlError("control-internal", "internal server error"))
+		return
+	}
 
 	for {
 		select {
-		case message := <-web.ReadChannel():
-			if err := rabbit.SendMessage(message); err != nil {
+		case msg := <-player.ReadChannel():
+			if err := message.ValidateUserMessage(msg); err != nil {
+				log.Println("invalid message from websocket:", err)
+				_ = player.WriteMessage(message.CraftControlError("control-validate", err.Error()))
+				continue
+			}
+
+			if err := server.SendMessage(msg); err != nil {
 				log.Println("failed to send message to rabbit:", err)
+				_ = player.WriteMessage(message.CraftControlError("control-internal", "internal server error"))
+				return
 			}
-		case message := <-rabbit.ReadChannel():
-			if err := web.WriteMessage(message); err != nil {
+		case msg := <-server.ReadChannel():
+			if err := player.WriteMessage(msg); err != nil {
 				log.Println("failed to send message to websocket:", err)
+				_ = server.SendMessage(message.CraftControlDisconnected(gameToken.UserId))
+				return
 			}
-		case <-web.Closed():
-			//	TODO: Send close to rabbit
+		case <-player.Closed():
 			log.Println("closed by websocket")
+			_ = server.SendMessage(message.CraftControlDisconnected(gameToken.UserId))
 			return
-		case <-rabbit.Closed():
-			//	TODO: Send close to websocket
+		case <-server.Closed():
 			log.Println("closed by rabbit")
+			_ = player.WriteMessage(message.CraftControlError("control-internal", "internal server error"))
 		}
 	}
 }

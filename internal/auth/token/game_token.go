@@ -9,9 +9,11 @@ import (
 
 const SuperSecret = "my-256-bit-secret"
 
-var ErrGameMissingUserId = errors.New("missing user ID")
-var ErrGameMissingGameId = errors.New("missing game ID")
-var ErrGameMissingUsername = errors.New("missing username")
+var (
+	ErrGameMissingUserId   = errors.New("missing user ID")
+	ErrGameMissingGameId   = errors.New("missing game ID")
+	ErrGameMissingUsername = errors.New("missing username")
+)
 
 type GameToken struct {
 	UserId   uuid.UUID `json:"userId"`
