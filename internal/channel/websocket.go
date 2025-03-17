@@ -95,7 +95,7 @@ func (client *WebSocketChannel) WriteMessage(message *message.Message) error {
 }
 
 func (client *WebSocketChannel) ReadMessage(timeout time.Duration) (*message.Message, error) {
-	if timeout == 0 {
+	if timeout < 0 {
 		select {
 		case <-client.closing:
 			return nil, ErrClientClosed

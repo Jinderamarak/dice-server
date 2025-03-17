@@ -164,7 +164,7 @@ func (client *RabbitChannel) SendMessage(message *message.Message) error {
 }
 
 func (client *RabbitChannel) ReadMessage(timeout time.Duration) (*message.Message, error) {
-	if timeout == 0 {
+	if timeout < 0 {
 		select {
 		case <-client.closing:
 			return nil, ErrClientClosed

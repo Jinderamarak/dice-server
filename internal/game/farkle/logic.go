@@ -12,11 +12,6 @@ import (
 
 const EndSleep = 10 * time.Second
 
-type Game struct {
-	Players      [2]*Player
-	WinningScore int
-}
-
 func NewGame(p1, p2 *Player, winningScore int) *Game {
 	return &Game{
 		Players:      [2]*Player{p1, p2},
