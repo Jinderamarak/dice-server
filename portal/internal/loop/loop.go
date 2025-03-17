@@ -1,13 +1,14 @@
-package portal
+package loop
 
 import (
 	"dice-server/common/auth/token"
 	"dice-server/common/channel"
 	"dice-server/common/channel/message"
+	wschan "dice-server/portal/internal/channel"
 	"log"
 )
 
-func OpenPortal(player *channel.WebSocketChannel, server *channel.RabbitChannel, gameToken *token.GameToken) {
+func OpenPortal(player *wschan.WebSocketChannel, server *channel.RabbitChannel, gameToken *token.GameToken) {
 	defer player.Close()
 	defer server.Close()
 

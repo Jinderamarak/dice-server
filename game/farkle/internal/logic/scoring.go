@@ -1,7 +1,7 @@
-package farkle
+package logic
 
 import (
-	"dice-server/common/game/farkle/data"
+	"dice-server/game/farkle/internal/data"
 	"math"
 )
 

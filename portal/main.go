@@ -3,10 +3,12 @@ package main
 import (
 	"dice-server/common/auth/token"
 	"dice-server/common/channel"
-	"dice-server/common/portal"
 	"dice-server/common/utility"
+	"dice-server/portal/connect"
+	wschan "dice-server/portal/internal/channel"
+	"dice-server/portal/internal/loop"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
+	ws "github.com/gorilla/websocket"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 	"net/http"
@@ -16,7 +18,7 @@ const (
 	serverHost = "0.0.0.0:9000"
 )
 
-var upgrader = websocket.Upgrader{
+var upgrader = ws.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
@@ -71,10 +73,10 @@ func portalHandler(ctx *gin.Context) {
 		return
 	}
 
-	wsChannel := channel.NewWebSocketChannel(conn)
+	wsChannel := wschan.NewWebSocketChannel(conn)
 
-	writeTopic := portal.PlayerToGameQueue(gameToken.GameId, gameToken.UserId)
-	readTopic := portal.GameToPlayerQueue(gameToken.GameId, gameToken.UserId)
+	writeTopic := connect.PlayerToGameQueue(gameToken.GameId, gameToken.UserId)
+	readTopic := connect.GameToPlayerQueue(gameToken.GameId, gameToken.UserId)
 	rabbitChannel, err := channel.OpenRabbitChannel(rabbitConnection, writeTopic, readTopic)
 	if err != nil {
 		log.Println("failed to open rabbit channel:", err)
@@ -83,5 +85,5 @@ func portalHandler(ctx *gin.Context) {
 	}
 
 	log.Printf("Opening portal between user %s and game %s\n", gameToken.UserId, gameToken.GameId)
-	go portal.OpenPortal(wsChannel, rabbitChannel, gameToken)
+	go loop.OpenPortal(wsChannel, rabbitChannel, gameToken)
 }

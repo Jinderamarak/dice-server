@@ -1,14 +1,13 @@
-package portal
+package connect
 
 import (
-	"fmt"
 	"github.com/google/uuid"
 )
 
 func PlayerToGameQueue(gameId, playerId uuid.UUID) string {
-	return fmt.Sprintf("/game/%s/from/%s", gameId, playerId)
+	return "/game/" + gameId.String() + "/from/" + playerId.String()
 }
 
 func GameToPlayerQueue(gameId, playerId uuid.UUID) string {
-	return fmt.Sprintf("/game/%s/to/%s", gameId, playerId)
+	return "/game/" + gameId.String() + "/to/" + playerId.String()
 }

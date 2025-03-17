@@ -1,8 +1,8 @@
-package farkle
+package logic
 
 import (
 	"dice-server/common/channel/message"
-	"dice-server/common/game/farkle/data"
+	"dice-server/game/farkle/internal/data"
 )
 
 func PlayFarkle(state *data.GameState, clients []*data.PlayerClient) {

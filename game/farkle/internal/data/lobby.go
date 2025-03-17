@@ -2,11 +2,6 @@ package data
 
 import "github.com/google/uuid"
 
-const (
-	CreateLobbyQueue = "/create/farkle"
-	JoinLobbyQueue   = "/join/farkle/%s"
-)
-
 type CreateLobbyMessage struct {
 	GameId uuid.UUID   `json:"gameId"`
 	Target int         `json:"score"`

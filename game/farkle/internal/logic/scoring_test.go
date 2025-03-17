@@ -1,4 +1,4 @@
-package farkle
+package logic
 
 import "testing"
 

@@ -1,4 +1,4 @@
-package farkle
+package logic
 
 import (
 	"dice-server/common/client"

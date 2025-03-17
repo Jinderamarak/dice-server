@@ -1,9 +1,10 @@
 package main
 
 import (
-	"dice-server/common/game/farkle/data"
-	"dice-server/common/game/farkle/lobby"
 	"dice-server/common/utility"
+	"dice-server/game/farkle/connect"
+	"dice-server/game/farkle/internal/data"
+	"dice-server/game/farkle/internal/lobby"
 	"encoding/json"
 	"errors"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -32,7 +33,7 @@ func workerLoop(conn *amqp.Connection) error {
 	defer utility.CloseAndIgnore(ch)
 
 	q, err := ch.QueueDeclare(
-		data.CreateLobbyQueue,
+		connect.CreateLobbyQueue,
 		true,
 		false,
 		false,

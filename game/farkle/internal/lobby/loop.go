@@ -3,13 +3,13 @@ package lobby
 import (
 	"dice-server/common/channel"
 	"dice-server/common/channel/message"
-	"dice-server/common/game/farkle"
-	"dice-server/common/game/farkle/data"
-	"dice-server/common/portal"
 	"dice-server/common/utility"
+	"dice-server/game/farkle/connect"
+	"dice-server/game/farkle/internal/data"
+	"dice-server/game/farkle/internal/logic"
+	portal "dice-server/portal/connect"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
@@ -73,7 +73,7 @@ func RunLobby(conn *amqp.Connection, msg *data.CreateLobbyMessage) {
 	}
 
 	state := createGameState(&firstPlayer, secondPlayer, msg)
-	go farkle.PlayFarkle(state, []*data.PlayerClient{firstClient, secondClient})
+	go logic.PlayFarkle(state, []*data.PlayerClient{firstClient, secondClient})
 }
 
 func abandonConnecting(first *data.PlayerClient, second *data.PlayerClient, reason string) {
@@ -82,8 +82,8 @@ func abandonConnecting(first *data.PlayerClient, second *data.PlayerClient, reas
 	_ = first.SendMessage(terminate)
 	first.Close()
 
-	_ = first.SendMessage(terminate)
-	first.Close()
+	_ = second.SendMessage(terminate)
+	second.Close()
 }
 
 func createPlayer(conn *amqp.Connection, gameId, playerId uuid.UUID) (*data.PlayerClient, error) {
@@ -106,7 +106,7 @@ func waitForOtherPlayer(conn *amqp.Connection, gameId uuid.UUID) (*data.PlayerCl
 	defer utility.CloseAndIgnore(ch)
 
 	q, err := ch.QueueDeclare(
-		fmt.Sprintf(data.JoinLobbyQueue, gameId),
+		connect.JoinLobbyQueue(gameId),
 		false,
 		false,
 		false,
@@ -162,7 +162,7 @@ func createGameState(first, second *data.LobbyPlayer, create *data.CreateLobbyMe
 				Dice:   nil,
 			},
 			{
-				Info:   *first,
+				Info:   *second,
 				Scores: data.PlayerScores{},
 				Dice:   nil,
 			},

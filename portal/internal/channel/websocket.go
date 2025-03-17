@@ -1,6 +1,7 @@
 package channel
 
 import (
+	"dice-server/common/channel"
 	"dice-server/common/channel/message"
 	"github.com/gorilla/websocket"
 	"log"
@@ -24,8 +25,8 @@ func NewWebSocketChannel(conn *websocket.Conn) *WebSocketChannel {
 
 	client := &WebSocketChannel{
 		conn:     conn,
-		incoming: make(chan *message.Message, MessageLimit),
-		outgoing: make(chan *message.Message, MessageLimit),
+		incoming: make(chan *message.Message, channel.MessageLimit),
+		outgoing: make(chan *message.Message, channel.MessageLimit),
 		closing:  make(chan struct{}),
 		closed:   atomic.Bool{},
 	}
@@ -90,7 +91,7 @@ func (client *WebSocketChannel) WriteMessage(message *message.Message) error {
 	case client.outgoing <- message:
 		return nil
 	default:
-		return ErrMessageLimit
+		return channel.ErrMessageLimit
 	}
 }
 
@@ -98,7 +99,7 @@ func (client *WebSocketChannel) ReadMessage(timeout time.Duration) (*message.Mes
 	if timeout < 0 {
 		select {
 		case <-client.closing:
-			return nil, ErrClientClosed
+			return nil, channel.ErrClientClosed
 		case msg := <-client.incoming:
 			return msg, nil
 		}
@@ -106,11 +107,11 @@ func (client *WebSocketChannel) ReadMessage(timeout time.Duration) (*message.Mes
 
 	select {
 	case <-client.closing:
-		return nil, ErrClientClosed
+		return nil, channel.ErrClientClosed
 	case msg := <-client.incoming:
 		return msg, nil
 	case <-time.After(timeout):
-		return nil, ErrReadTimeout
+		return nil, channel.ErrReadTimeout
 	}
 }
 
