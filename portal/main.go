@@ -1,10 +1,10 @@
 package main
 
 import (
-	"dice-server/internal/auth/token"
-	"dice-server/internal/channel"
-	"dice-server/internal/portal"
-	"dice-server/internal/utility"
+	"dice-server/common/auth/token"
+	"dice-server/common/channel"
+	"dice-server/common/portal"
+	"dice-server/common/utility"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	amqp "github.com/rabbitmq/amqp091-go"

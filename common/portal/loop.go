@@ -1,9 +1,9 @@
 package portal
 
 import (
-	"dice-server/internal/auth/token"
-	"dice-server/internal/channel"
-	"dice-server/internal/channel/message"
+	"dice-server/common/auth/token"
+	"dice-server/common/channel"
+	"dice-server/common/channel/message"
 	"log"
 )
 

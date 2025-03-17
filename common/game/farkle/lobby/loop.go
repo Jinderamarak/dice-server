@@ -1,12 +1,12 @@
 package lobby
 
 import (
-	"dice-server/internal/channel"
-	"dice-server/internal/channel/message"
-	"dice-server/internal/game/farkle"
-	"dice-server/internal/game/farkle/data"
-	"dice-server/internal/portal"
-	"dice-server/internal/utility"
+	"dice-server/common/channel"
+	"dice-server/common/channel/message"
+	"dice-server/common/game/farkle"
+	"dice-server/common/game/farkle/data"
+	"dice-server/common/portal"
+	"dice-server/common/utility"
 	"encoding/json"
 	"errors"
 	"fmt"

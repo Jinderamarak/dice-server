@@ -1,7 +1,7 @@
 package data
 
 import (
-	"dice-server/internal/channel/message"
+	"dice-server/common/channel/message"
 	"github.com/google/uuid"
 )
 

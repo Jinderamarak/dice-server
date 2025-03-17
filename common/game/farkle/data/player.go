@@ -1,8 +1,8 @@
 package data
 
 import (
-	"dice-server/internal/channel"
-	"dice-server/internal/channel/message"
+	"dice-server/common/channel"
+	"dice-server/common/channel/message"
 	"github.com/google/uuid"
 	"log"
 	"sync/atomic"

@@ -1,7 +1,7 @@
 package channel
 
 import (
-	"dice-server/internal/channel/message"
+	"dice-server/common/channel/message"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 	"sync/atomic"

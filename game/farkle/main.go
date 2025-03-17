@@ -1,9 +1,9 @@
 package main
 
 import (
-	"dice-server/internal/game/farkle/data"
-	"dice-server/internal/game/farkle/lobby"
-	"dice-server/internal/utility"
+	"dice-server/common/game/farkle/data"
+	"dice-server/common/game/farkle/lobby"
+	"dice-server/common/utility"
 	"encoding/json"
 	"errors"
 	amqp "github.com/rabbitmq/amqp091-go"

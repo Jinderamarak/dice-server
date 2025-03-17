@@ -1,8 +1,8 @@
 package farkle
 
 import (
-	"dice-server/internal/client"
-	"dice-server/internal/game/common"
+	"dice-server/common/client"
+	"dice-server/common/game/common"
 	"errors"
 	"github.com/google/uuid"
 	"log"
