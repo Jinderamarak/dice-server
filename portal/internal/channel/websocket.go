@@ -43,18 +43,18 @@ func (client *WebSocketChannel) readingLoop() {
 
 		switch {
 		case websocket.IsUnexpectedCloseError(err):
-			log.Println("unexpected close error:", err)
+			log.Println("Unexpected close error:", err)
 			client.Close()
 			return
 		case err != nil:
-			log.Println("failed to read message:", err)
+			log.Println("Failed to read message:", err)
 			continue
 		}
 
 		select {
 		case client.incoming <- &msg:
 		default:
-			log.Println("dropped incoming message")
+			log.Println("Dropped incoming message")
 		}
 	}
 }
@@ -68,11 +68,11 @@ func (client *WebSocketChannel) writingLoop() {
 			err := client.conn.WriteJSON(msg)
 			switch {
 			case websocket.IsUnexpectedCloseError(err):
-				log.Println("unexpected close error:", err)
+				log.Println("Unexpected close error:", err)
 				client.Close()
 				return
 			case err != nil:
-				log.Println("failed to write message:", err)
+				log.Println("Failed to write message:", err)
 				continue
 			}
 		}

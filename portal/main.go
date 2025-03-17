@@ -79,7 +79,7 @@ func portalHandler(ctx *gin.Context) {
 	readTopic := connect.GameToPlayerQueue(gameToken.GameId, gameToken.UserId)
 	rabbitChannel, err := channel.OpenRabbitChannel(rabbitConnection, writeTopic, readTopic)
 	if err != nil {
-		log.Println("failed to open rabbit channel:", err)
+		log.Println("Failed to open rabbit channel:", err)
 		wsChannel.Close()
 		return
 	}

@@ -98,21 +98,21 @@ func (client *RabbitChannel) readingLoop() {
 			return
 		case delivery, ok := <-client.consumer:
 			if !ok {
-				log.Println("consumer channel is closed")
+				log.Println("Consumer channel is closed")
 				client.Close()
 				return
 			}
 
 			var msg message.Message
 			if err := msg.Unmarshal(delivery.Body); err != nil {
-				log.Println("failed to unmarshal message:", err)
+				log.Println("Failed to unmarshal message:", err)
 				continue
 			}
 
 			select {
 			case client.incoming <- &msg:
 			default:
-				log.Println("dropped incoming message")
+				log.Println("Dropped incoming message")
 			}
 		}
 	}
@@ -126,7 +126,7 @@ func (client *RabbitChannel) writingLoop() {
 		case msg := <-client.outgoing:
 			data, err := msg.Marshal()
 			if err != nil {
-				log.Println("failed to marshal message:", err)
+				log.Println("Failed to marshal message:", err)
 				continue
 			}
 
@@ -140,7 +140,7 @@ func (client *RabbitChannel) writingLoop() {
 					Body:        data,
 				})
 			if err != nil {
-				log.Println("failed to publish message:", err)
+				log.Println("Failed to publish message:", err)
 				continue
 			}
 		}
