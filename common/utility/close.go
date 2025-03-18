@@ -1,7 +1,13 @@
 package utility
 
-import "io"
+import (
+	"io"
+	"log"
+)
 
 func CloseAndIgnore(c io.Closer) {
-	_ = c.Close()
+	err := c.Close()
+	if err != nil {
+		log.Println("Error closing resource:", err)
+	}
 }

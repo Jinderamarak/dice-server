@@ -148,7 +148,10 @@ func (client *RabbitChannel) writingLoop() {
 }
 
 func (client *RabbitChannel) Close() {
-	_ = client.channel.Close()
+	err := client.channel.Close()
+	if err != nil {
+		log.Println("Failed to close channel:", err)
+	}
 	if !client.closed.Swap(true) {
 		close(client.closing)
 	}

@@ -80,7 +80,10 @@ func (client *WebSocketChannel) writingLoop() {
 }
 
 func (client *WebSocketChannel) Close() {
-	_ = client.conn.Close()
+	err := client.conn.Close()
+	if err != nil {
+		log.Println("Failed to close connection:", err)
+	}
 	if !client.closed.Swap(true) {
 		close(client.closing)
 	}
