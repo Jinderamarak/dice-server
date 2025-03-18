@@ -3,7 +3,6 @@ package main
 import (
 	"dice-server/common/utility"
 	"dice-server/game/farkle/connect"
-	"dice-server/game/farkle/internal/data"
 	"dice-server/game/farkle/internal/lobby"
 	"encoding/json"
 	"errors"
@@ -85,7 +84,7 @@ func workerLoop(conn *amqp.Connection) error {
 }
 
 func startLobby(conn *amqp.Connection, msg amqp.Delivery) error {
-	var createLobby data.CreateLobbyMessage
+	var createLobby connect.CreateLobbyMessage
 	err := json.Unmarshal(msg.Body, &createLobby)
 	if err != nil {
 		log.Println("Failed to unmarshal create message:", err)

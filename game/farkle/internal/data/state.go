@@ -1,6 +1,7 @@
 package data
 
 import (
+	"dice-server/game/farkle/connect"
 	"github.com/google/uuid"
 )
 
@@ -12,9 +13,9 @@ type GameState struct {
 }
 
 type PlayerState struct {
-	Info   LobbyPlayer  `json:"info"`
-	Scores PlayerScores `json:"scores"`
-	Dice   []*Dice      `json:"dice"`
+	Info   connect.LobbyPlayer `json:"info"`
+	Scores PlayerScores        `json:"scores"`
+	Dice   []*Dice             `json:"dice"`
 }
 
 type PlayerScores struct {

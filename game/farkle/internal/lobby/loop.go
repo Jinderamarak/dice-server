@@ -18,7 +18,7 @@ import (
 
 const joinLobbyTimeout = time.Minute
 
-func RunLobby(conn *amqp.Connection, msg *data.CreateLobbyMessage) {
+func RunLobby(conn *amqp.Connection, msg *connect.CreateLobbyMessage) {
 	firstPlayer := msg.Player
 	firstClient, err := createPlayer(conn, msg.GameId, firstPlayer.UserId)
 	if err != nil {
@@ -108,7 +108,7 @@ func createPlayer(conn *amqp.Connection, gameId, playerId uuid.UUID) (*data.Play
 	return data.NewPlayerClient(playerId, rabbit), nil
 }
 
-func waitForOtherPlayer(conn *amqp.Connection, gameId uuid.UUID) (*data.PlayerClient, *data.LobbyPlayer, error) {
+func waitForOtherPlayer(conn *amqp.Connection, gameId uuid.UUID) (*data.PlayerClient, *connect.LobbyPlayer, error) {
 	ch, err := conn.Channel()
 	if err != nil {
 		return nil, nil, err
@@ -142,13 +142,14 @@ func waitForOtherPlayer(conn *amqp.Connection, gameId uuid.UUID) (*data.PlayerCl
 
 	log.Println("Waiting for other player to join:", q.Name)
 	for msg := range messages {
-		var joinLobby data.JoinLobbyMessage
+		var joinLobby connect.JoinLobbyMessage
 		err = json.Unmarshal(msg.Body, &joinLobby)
 		if err != nil {
 			log.Println("Join lobby attempt failed:", err)
 			continue
 		}
 
+		log.Println("Joining player:", joinLobby.Player.Username)
 		client, err := createPlayer(conn, gameId, joinLobby.Player.UserId)
 		if err != nil {
 			return nil, nil, err
@@ -160,7 +161,7 @@ func waitForOtherPlayer(conn *amqp.Connection, gameId uuid.UUID) (*data.PlayerCl
 	return nil, nil, errors.New("lobby ran out of messages")
 }
 
-func createGameState(first, second *data.LobbyPlayer, create *data.CreateLobbyMessage) *data.GameState {
+func createGameState(first, second *connect.LobbyPlayer, create *connect.CreateLobbyMessage) *data.GameState {
 	firstDice := make([]*data.Dice, len(first.DiceSet))
 	for i, d := range first.DiceSet {
 		firstDice[i] = data.NewDice(d.Id)
