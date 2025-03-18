@@ -36,32 +36,41 @@ func RunLobby(conn *amqp.Connection, msg *data.CreateLobbyMessage) {
 	secondConnected := make(chan error)
 	canceled := make(chan struct{})
 
+	log.Println("Waiting for both players to connect")
 	go waitForConnection(firstClient, firstPlayer.UserId, firstConnected, canceled)
 	go waitForConnection(secondClient, secondPlayer.UserId, secondConnected, canceled)
 
 	firstIsDone := false
 	secondIsDone := false
+	deadline := time.Now().Add(joinLobbyTimeout)
 	for {
 		select {
-		case first := <-firstConnected:
-			if first != nil {
+		case first, ok := <-firstConnected:
+			if ok && first != nil {
 				log.Println("First player failed to connect:", first)
 				close(canceled)
 				abandonConnecting(firstClient, secondClient, "player failed to connect")
 				return
 			}
 
+			if !firstIsDone {
+				log.Println("First player just connected")
+			}
 			firstIsDone = true
-		case second := <-secondConnected:
-			if second != nil {
+		case second, ok := <-secondConnected:
+			if ok && second != nil {
 				log.Println("Second player failed to connect:", second)
 				close(canceled)
 				abandonConnecting(firstClient, secondClient, "player failed to connect")
 				return
 			}
 
+			if !secondIsDone {
+				log.Println("Second player just connected")
+			}
 			secondIsDone = true
-		case <-time.After(joinLobbyTimeout):
+		case <-time.After(deadline.Sub(time.Now())):
+			log.Println("Players took too long")
 			close(canceled)
 			abandonConnecting(firstClient, secondClient, "player did not connect")
 			return
@@ -72,6 +81,7 @@ func RunLobby(conn *amqp.Connection, msg *data.CreateLobbyMessage) {
 		}
 	}
 
+	log.Println("Creating game of farkle")
 	state := createGameState(&firstPlayer, secondPlayer, msg)
 	go logic.PlayFarkle(state, []*data.PlayerClient{firstClient, secondClient})
 }
