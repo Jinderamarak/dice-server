@@ -88,11 +88,11 @@ func RunLobby(conn *amqp.Connection, msg *data.CreateLobbyMessage) {
 
 func abandonConnecting(first *data.PlayerClient, second *data.PlayerClient, reason string) {
 	terminate := message.CraftControlTerminate(reason)
-
 	_ = first.SendMessage(terminate)
-	first.Close()
-
 	_ = second.SendMessage(terminate)
+
+	time.After(time.Second)
+	first.Close()
 	second.Close()
 }
 
@@ -140,7 +140,7 @@ func waitForOtherPlayer(conn *amqp.Connection, gameId uuid.UUID) (*data.PlayerCl
 		return nil, nil, err
 	}
 
-	log.Println("Waiting for other player to join")
+	log.Println("Waiting for other player to join:", q.Name)
 	for msg := range messages {
 		var joinLobby data.JoinLobbyMessage
 		err = json.Unmarshal(msg.Body, &joinLobby)
@@ -199,9 +199,15 @@ func waitForConnection(client *data.PlayerClient, playerId uuid.UUID, connected 
 		return
 	}
 
+	importantMsgs := make(chan *message.Message)
+	importantHandler := func(msg *message.Message) {
+		importantMsgs <- msg
+	}
+	client.SetImportantHandler(&importantHandler)
+
 	for {
 		select {
-		case msg := <-client.ReadChannel():
+		case msg := <-importantMsgs:
 			if msg.Variant == message.VarControlConnected {
 				var controlConnected message.VariantControlConnected
 				err := msg.UnmarshalData(&controlConnected)
