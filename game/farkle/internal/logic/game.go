@@ -32,6 +32,15 @@ func PlayFarkle(state *data.GameState, clients []*data.PlayerClient) {
 		}
 	}()
 
+	for _, client := range clients {
+		handler := func(msg *message.Message) {
+			if msg.Variant == data.VarSyncState {
+				_ = client.SendMessage(data.CraftSyncState(state))
+			}
+		}
+		client.SetImportantHandler(&handler)
+	}
+
 	broadcast(clients, data.CraftGameBegin(state))
 	time.Sleep(beginSleep)
 

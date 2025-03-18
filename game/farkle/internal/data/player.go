@@ -29,6 +29,8 @@ type PlayerClient struct {
 	state    atomic.Int32
 	hasTurn  atomic.Bool
 	incoming chan *message.Message
+
+	importantHandler *func(*message.Message)
 }
 
 func NewPlayerClient(playerId uuid.UUID, ch playerChannel) *PlayerClient {
@@ -55,7 +57,15 @@ func (c *PlayerClient) readingLoop() {
 				c.Close()
 				return
 			}
+
 			c.updateStateWithMessage(msg)
+
+			if IsImportantMessage(msg) {
+				if c.importantHandler != nil {
+					(*c.importantHandler)(msg)
+				}
+				continue
+			}
 
 			if !c.hasTurn.Load() {
 				continue
@@ -142,4 +152,8 @@ func (c *PlayerClient) SetOnTurn() {
 
 func (c *PlayerClient) SetOffTurn() {
 	c.hasTurn.Store(false)
+}
+
+func (c *PlayerClient) SetImportantHandler(handler *func(*message.Message)) {
+	c.importantHandler = handler
 }

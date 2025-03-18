@@ -7,6 +7,7 @@ import (
 
 const (
 	VarGameBegin   = "farkle-game-begin"
+	VarPleaseSync  = "farkle-please-sync"
 	VarSyncState   = "farkle-sync-state"
 	VarTurnBegin   = "farkle-turn-begin"
 	VarDiceRoll    = "farkle-dice-roll"
@@ -21,6 +22,9 @@ const (
 
 type VariantGameBegin struct {
 	State *GameState `json:"state"`
+}
+
+type VariantPleaseSync struct {
 }
 
 type VariantSyncState struct {
@@ -71,6 +75,10 @@ func CraftGameBegin(state *GameState) *message.Message {
 	return message.MustCraftMessage(VarGameBegin, VariantGameBegin{State: state})
 }
 
+func CraftPleaseSync() *message.Message {
+	return message.MustCraftMessage(VarPleaseSync, VariantPleaseSync{})
+}
+
 func CraftSyncState(state *GameState) *message.Message {
 	return message.MustCraftMessage(VarSyncState, VariantSyncState{State: state})
 }
@@ -109,4 +117,17 @@ func CraftEndTurn(playerId uuid.UUID) *message.Message {
 
 func CraftGameEnd(winnerId uuid.UUID) *message.Message {
 	return message.MustCraftMessage(VarGameEnd, VariantGameEnd{WinnerId: winnerId})
+}
+
+func IsImportantMessage(msg *message.Message) bool {
+	if message.IsControlMessage(msg) {
+		return true
+	}
+
+	switch msg.Variant {
+	case VarSyncState:
+		return true
+	default:
+		return false
+	}
 }
