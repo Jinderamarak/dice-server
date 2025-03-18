@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	serverHost = "0.0.0.0:9000"
+	serverHost = "0.0.0.0:9001"
 )
 
 var upgrader = ws.Upgrader{
