@@ -5,20 +5,20 @@ import (
 )
 
 type GameState struct {
-	Id            uuid.UUID     `json:"id"`
-	Target        int           `json:"target"`
-	CurrentPlayer uuid.UUID     `json:"currentPlayer"`
-	Players       []PlayerState `json:"players"`
+	Id            uuid.UUID      `json:"id"`
+	Target        int            `json:"target"`
+	CurrentPlayer uuid.UUID      `json:"currentPlayer"`
+	Players       []*PlayerState `json:"players"`
 }
 
 type PlayerState struct {
 	Info   LobbyPlayer  `json:"info"`
 	Scores PlayerScores `json:"scores"`
-	Dice   []Dice       `json:"dice"`
+	Dice   []*Dice      `json:"dice"`
 }
 
 type PlayerScores struct {
-	Total    int  `json:"total"`
-	Turn     bool `json:"turn"`
-	Selected int  `json:"selected"`
+	Total    int `json:"total"`
+	Turn     int `json:"turn"`
+	Selected int `json:"selected"`
 }

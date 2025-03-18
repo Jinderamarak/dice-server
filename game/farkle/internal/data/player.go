@@ -24,7 +24,6 @@ type playerChannel interface {
 
 type PlayerClient struct {
 	id      uuid.UUID
-	diceSet []Dice
 	channel playerChannel
 
 	state    atomic.Int32
@@ -143,12 +142,4 @@ func (c *PlayerClient) SetOnTurn() {
 
 func (c *PlayerClient) SetOffTurn() {
 	c.hasTurn.Store(false)
-}
-
-func (c *PlayerClient) GetDicePouch() []Dice {
-	pouch := make([]Dice, len(c.diceSet))
-	for i, dice := range c.diceSet {
-		pouch[i] = NewDice(dice.Id)
-	}
-	return pouch
 }

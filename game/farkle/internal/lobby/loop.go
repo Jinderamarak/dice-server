@@ -151,20 +151,30 @@ func waitForOtherPlayer(conn *amqp.Connection, gameId uuid.UUID) (*data.PlayerCl
 }
 
 func createGameState(first, second *data.LobbyPlayer, create *data.CreateLobbyMessage) *data.GameState {
+	firstDice := make([]*data.Dice, len(first.DiceSet))
+	for i, d := range first.DiceSet {
+		firstDice[i] = data.NewDice(d.Id)
+	}
+
+	secondDice := make([]*data.Dice, len(second.DiceSet))
+	for i, d := range second.DiceSet {
+		secondDice[i] = data.NewDice(d.Id)
+	}
+
 	return &data.GameState{
 		Id:            create.GameId,
 		Target:        create.Target,
 		CurrentPlayer: first.UserId,
-		Players: []data.PlayerState{
+		Players: []*data.PlayerState{
 			{
 				Info:   *first,
 				Scores: data.PlayerScores{},
-				Dice:   nil,
+				Dice:   firstDice,
 			},
 			{
 				Info:   *second,
 				Scores: data.PlayerScores{},
-				Dice:   nil,
+				Dice:   secondDice,
 			},
 		},
 	}
