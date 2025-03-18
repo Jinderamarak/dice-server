@@ -64,7 +64,7 @@ func NewGameToken(userId, gameId uuid.UUID, issuer string, issuedAt, expiresAt t
 	}
 }
 
-func (token *GameToken) Sign(secret string) (string, error) {
+func (token *GameToken) Sign(secret []byte) (string, error) {
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, token)
 	return jwtToken.SignedString(secret)
 }
