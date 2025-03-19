@@ -11,13 +11,13 @@ const (
 	ScoreLowerStraight = 500
 )
 
-func countValues(dice []*data.Dice) map[int]int {
+func countValues(dice []*data.Dice, includeNotSelected bool) map[int]int {
 	counts := make(map[int]int)
 	for _, d := range dice {
 		if !d.Playable {
 			continue
 		}
-		if !d.Selected {
+		if !d.Selected && !includeNotSelected {
 			continue
 		}
 		counts[d.Value]++

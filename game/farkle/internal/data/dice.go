@@ -27,20 +27,8 @@ func NewDice(id uuid.UUID) *Dice {
 	}
 }
 
-func (dice *Dice) Roll() Dice {
+func (dice *Dice) Roll() {
 	if dice.Playable {
-		return Dice{
-			Id:       dice.Id,
-			Value:    Roller.IntN(6) + 1,
-			Selected: dice.Selected,
-			Playable: dice.Playable,
-		}
-	} else {
-		return Dice{
-			Id:       dice.Id,
-			Value:    dice.Value,
-			Selected: dice.Selected,
-			Playable: dice.Playable,
-		}
+		dice.Value = Roller.IntN(6) + 1
 	}
 }

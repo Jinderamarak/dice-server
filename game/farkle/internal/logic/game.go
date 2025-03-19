@@ -96,7 +96,7 @@ func turnLoop(clients []*data.PlayerClient, player *data.PlayerState, client *da
 
 	for {
 		rollDice(player.Dice)
-		busted := hasBusted(countValues(player.Dice))
+		busted := hasBusted(countValues(player.Dice, true))
 		broadcast(clients, data.CraftDiceRoll(player.Dice, busted))
 
 		if busted {
@@ -160,7 +160,7 @@ func diceSelection(clients []*data.PlayerClient, player *data.PlayerState, clien
 
 			broadcast(clients, data.CraftDiceTouched(player.Info.UserId, player.Dice))
 
-			selected, extra := scoreCounts(countValues(player.Dice))
+			selected, extra := scoreCounts(countValues(player.Dice, false))
 			player.Scores.Selected = selected
 			if extra {
 				player.Scores.Selected = 0
