@@ -42,7 +42,7 @@ func OpenRabbitChannel(conn *amqp.Connection, writeTopic, readTopic string) (*Ra
 
 	consumer, err := channel.Consume(
 		readQueue.Name,
-		"",
+		"rabbit-channel_"+readTopic,
 		true,
 		false,
 		false,
@@ -73,10 +73,12 @@ func declareWriteQueue(channel *amqp.Channel, topic string) (amqp.Queue, error) 
 	return channel.QueueDeclare(
 		topic,
 		false,
+		true,
 		false,
 		false,
-		false,
-		nil,
+		amqp.Table{
+			"x-expires": int32(1000 * 10),
+		},
 	)
 }
 
@@ -84,10 +86,12 @@ func declareReadQueue(channel *amqp.Channel, topic string) (amqp.Queue, error) {
 	return channel.QueueDeclare(
 		topic,
 		false,
+		true,
 		false,
 		false,
-		false,
-		nil,
+		amqp.Table{
+			"x-expires": int32(1000 * 10),
+		},
 	)
 }
 

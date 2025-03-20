@@ -14,6 +14,7 @@ const (
 	beginSleep     = time.Second * 3
 	turnBeginSleep = time.Second
 	pickTimeout    = time.Minute
+	terminateSleep = time.Second * 10
 )
 
 const (
@@ -49,12 +50,17 @@ func PlayFarkle(state *data.GameState, clients []*data.PlayerClient) {
 		log.Println("Game terminated:", err)
 		broadcast(clients, message.CraftControlError(errGeneral, "server error"))
 	}
+
 	broadcast(clients, message.CraftControlTerminate("game closed"))
+	time.Sleep(terminateSleep)
 }
 
 func broadcast(clients []*data.PlayerClient, msg *message.Message) {
 	for _, client := range clients {
-		_ = client.SendMessage(msg)
+		err := client.SendMessage(msg)
+		if err != nil {
+			log.Println("Error broadcasting to client:", err)
+		}
 	}
 }
 
@@ -75,6 +81,7 @@ func gameLoop(state *data.GameState, clients []*data.PlayerClient) error {
 		broadcast(clients, data.CraftUpdateScore(currentPlayer.Info.UserId, currentPlayer.Scores))
 
 		if currentPlayer.Scores.Total >= state.Target {
+			log.Println("Game ended, winner:", currentPlayer.Info.Username)
 			broadcast(clients, data.CraftGameEnd(currentPlayer.Info.UserId))
 			return nil
 		}

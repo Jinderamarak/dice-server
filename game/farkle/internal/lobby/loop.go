@@ -118,10 +118,12 @@ func waitForOtherPlayer(conn *amqp.Connection, gameId uuid.UUID) (*data.PlayerCl
 	q, err := ch.QueueDeclare(
 		connect.JoinLobbyQueue(gameId),
 		false,
+		true,
 		false,
 		false,
-		false,
-		nil,
+		amqp.Table{
+			"x-expires": int32(1000 * 10),
+		},
 	)
 	if err != nil {
 		return nil, nil, err
@@ -129,8 +131,8 @@ func waitForOtherPlayer(conn *amqp.Connection, gameId uuid.UUID) (*data.PlayerCl
 
 	messages, err := ch.Consume(
 		q.Name,
-		"",
-		false,
+		"game-farkle-lobby",
+		true,
 		false,
 		false,
 		false,

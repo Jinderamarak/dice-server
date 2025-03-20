@@ -55,7 +55,7 @@ func workerLoop(conn *amqp.Connection) error {
 
 	messages, err := ch.Consume(
 		q.Name,
-		"",
+		"game-farkle-worker",
 		false,
 		false,
 		false,

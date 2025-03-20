@@ -2,7 +2,7 @@ package channel
 
 import "errors"
 
-const MessageLimit = 8
+const MessageLimit = 16
 
 var (
 	ErrMessageLimit = errors.New("message limit exceeded")

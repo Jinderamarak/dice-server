@@ -91,10 +91,12 @@ func publishJoinGameFarkle(gameId uuid.UUID, data connect.JoinLobbyMessage) erro
 	queue, err := rabbitChannel.QueueDeclare(
 		connect.JoinLobbyQueue(gameId),
 		false,
+		true,
 		false,
 		false,
-		false,
-		nil,
+		amqp.Table{
+			"x-expires": int32(1000 * 10),
+		},
 	)
 	if err != nil {
 		return err

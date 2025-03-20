@@ -47,8 +47,10 @@ func (client *WebSocketChannel) readingLoop() {
 			client.Close()
 			return
 		case err != nil:
-			log.Println("Failed to read message:", err)
-			continue
+			//log.Println("Failed to read message:", err)
+			//continue
+			client.Close()
+			return
 		}
 
 		select {
