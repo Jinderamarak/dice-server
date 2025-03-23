@@ -11,16 +11,16 @@ type gameClients struct {
 	clients map[uuid.UUID]*WebSocketClient
 }
 
-func (clients *gameClients) getOrCreateClient(userId uuid.UUID) *WebSocketClient {
+func (clients *gameClients) getOrCreateClient(userID uuid.UUID) *WebSocketClient {
 	clients.mu.Lock()
 	defer clients.mu.Unlock()
 
-	if client, ok := clients.clients[userId]; ok {
+	if client, ok := clients.clients[userID]; ok {
 		return client
 	}
 
 	client := NewWebSocketClient()
-	clients.clients[userId] = client
+	clients.clients[userID] = client
 	return client
 }
 
@@ -48,11 +48,11 @@ func NewWebSocketManager(upgrader websocket.Upgrader) *WebSocketManager {
 	}
 }
 
-func (manager *WebSocketManager) getOrCreateGame(gameId uuid.UUID) *gameClients {
+func (manager *WebSocketManager) getOrCreateGame(gameID uuid.UUID) *gameClients {
 	manager.clientsMu.Lock()
 	defer manager.clientsMu.Unlock()
 
-	if clients, ok := manager.clients[gameId]; ok {
+	if clients, ok := manager.clients[gameID]; ok {
 		return clients
 	}
 
@@ -61,25 +61,25 @@ func (manager *WebSocketManager) getOrCreateGame(gameId uuid.UUID) *gameClients 
 		clients: make(map[uuid.UUID]*WebSocketClient),
 	}
 
-	manager.clients[gameId] = clients
+	manager.clients[gameID] = clients
 	return clients
 }
 
-func (manager *WebSocketManager) UpgradeClient(gameId uuid.UUID, userId uuid.UUID, conn *websocket.Conn) *WebSocketClient {
-	clients := manager.getOrCreateGame(gameId)
-	client := clients.getOrCreateClient(userId)
+func (manager *WebSocketManager) UpgradeClient(gameID uuid.UUID, userID uuid.UUID, conn *websocket.Conn) *WebSocketClient {
+	clients := manager.getOrCreateGame(gameID)
+	client := clients.getOrCreateClient(userID)
 
 	client.reconnect(conn)
 
 	return client
 }
 
-func (manager *WebSocketManager) CloseGame(gameId uuid.UUID) {
-	clients := manager.getOrCreateGame(gameId)
+func (manager *WebSocketManager) CloseGame(gameID uuid.UUID) {
+	clients := manager.getOrCreateGame(gameID)
 	clients.close()
 
 	manager.clientsMu.Lock()
 	defer manager.clientsMu.Unlock()
 
-	delete(manager.clients, gameId)
+	delete(manager.clients, gameID)
 }

@@ -87,9 +87,9 @@ func publishCreateGameFarkle(data connect.CreateLobbyMessage) error {
 	return nil
 }
 
-func publishJoinGameFarkle(gameId uuid.UUID, data connect.JoinLobbyMessage) error {
+func publishJoinGameFarkle(gameID uuid.UUID, data connect.JoinLobbyMessage) error {
 	queue, err := rabbitChannel.QueueDeclare(
-		connect.JoinLobbyQueue(gameId),
+		connect.JoinLobbyQueue(gameID),
 		false,
 		true,
 		false,
@@ -124,14 +124,14 @@ func publishJoinGameFarkle(gameId uuid.UUID, data connect.JoinLobbyMessage) erro
 }
 
 func createFarkleHandler(ctx *gin.Context) {
-	gameId := uuid.New()
-	playerId := uuid.New()
+	gameID := uuid.New()
+	playerID := uuid.New()
 
 	createLobby := connect.CreateLobbyMessage{
-		GameId: gameId,
+		GameID: gameID,
 		Target: 3000,
 		Player: connect.LobbyPlayer{
-			UserId:   playerId,
+			UserID:   playerID,
 			Username: "Player 1",
 			DiceSet: []connect.LobbyDice{
 				{uuid.New()},
@@ -150,7 +150,7 @@ func createFarkleHandler(ctx *gin.Context) {
 		return
 	}
 
-	gameToken := token.NewGameToken(playerId, gameId, "gamemaster", time.Now(), time.Now().Add(time.Hour))
+	gameToken := token.NewGameToken(playerID, gameID, "gamemaster", time.Now(), time.Now().Add(time.Hour))
 	tokenString, err := gameToken.Sign([]byte(token.SuperSecret))
 	if err != nil {
 		log.Println("Failed to sign token:", err)
@@ -162,17 +162,17 @@ func createFarkleHandler(ctx *gin.Context) {
 }
 
 func joinFarkleHandler(ctx *gin.Context) {
-	gameIdStr := ctx.Param("gameId")
-	gameId, err := uuid.Parse(gameIdStr)
+	gameIDStr := ctx.Param("gameId")
+	gameID, err := uuid.Parse(gameIDStr)
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": "Invalid game ID"})
 		return
 	}
 
-	playerId := uuid.New()
+	playerID := uuid.New()
 	joinLobby := connect.JoinLobbyMessage{
 		Player: connect.LobbyPlayer{
-			UserId:   playerId,
+			UserID:   playerID,
 			Username: "Player 2",
 			DiceSet: []connect.LobbyDice{
 				{uuid.New()},
@@ -185,13 +185,13 @@ func joinFarkleHandler(ctx *gin.Context) {
 		},
 	}
 
-	if err := publishJoinGameFarkle(gameId, joinLobby); err != nil {
+	if err := publishJoinGameFarkle(gameID, joinLobby); err != nil {
 		log.Println("Failed to join game:", err)
 		ctx.JSON(500, gin.H{"error": "Failed to join game"})
 		return
 	}
 
-	gameToken := token.NewGameToken(playerId, gameId, "gamemaster", time.Now(), time.Now().Add(time.Hour))
+	gameToken := token.NewGameToken(playerID, gameID, "gamemaster", time.Now(), time.Now().Add(time.Hour))
 	tokenString, err := gameToken.Sign([]byte(token.SuperSecret))
 	if err != nil {
 		log.Println("Failed to sign token:", err)

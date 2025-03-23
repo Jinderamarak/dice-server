@@ -71,18 +71,18 @@ func gameLoop(state *data.GameState, clients []*data.PlayerClient) error {
 		currentPlayer := state.Players[currentPlayerIdx]
 		currentClient := clients[currentPlayerIdx]
 
-		state.CurrentPlayer = currentPlayer.Info.UserId
+		state.CurrentPlayer = currentPlayer.Info.UserID
 
 		err := turnLoop(clients, currentPlayer, currentClient)
 		if err != nil {
 			return err
 		}
 
-		broadcast(clients, data.CraftUpdateScore(currentPlayer.Info.UserId, currentPlayer.Scores))
+		broadcast(clients, data.CraftUpdateScore(currentPlayer.Info.UserID, currentPlayer.Scores))
 
 		if currentPlayer.Scores.Total >= state.Target {
 			log.Println("Game ended, winner:", currentPlayer.Info.Username)
-			broadcast(clients, data.CraftGameEnd(currentPlayer.Info.UserId))
+			broadcast(clients, data.CraftGameEnd(currentPlayer.Info.UserID))
 			return nil
 		}
 	}
@@ -94,7 +94,7 @@ func turnLoop(clients []*data.PlayerClient, player *data.PlayerState, client *da
 	client.SetOnTurn()
 	defer client.SetOffTurn()
 
-	broadcast(clients, data.CraftTurnBegin(player.Info.UserId))
+	broadcast(clients, data.CraftTurnBegin(player.Info.UserID))
 	time.Sleep(turnBeginSleep)
 
 	player.Scores.Turn = 0
@@ -110,7 +110,7 @@ func turnLoop(clients []*data.PlayerClient, player *data.PlayerState, client *da
 			log.Println("Player busted")
 			player.Scores.Turn = 0
 			player.Scores.Selected = 0
-			broadcast(clients, data.CraftUpdateScore(player.Info.UserId, player.Scores))
+			broadcast(clients, data.CraftUpdateScore(player.Info.UserID, player.Scores))
 			return nil
 		}
 
@@ -119,7 +119,7 @@ func turnLoop(clients []*data.PlayerClient, player *data.PlayerState, client *da
 			if errors.Is(err, channel.ErrReadTimeout) {
 				player.Scores.Selected = 0
 				player.Scores.Turn = 0
-				broadcast(clients, data.CraftTurnTimeout(player.Info.UserId))
+				broadcast(clients, data.CraftTurnTimeout(player.Info.UserID))
 				return nil
 			} else {
 				return err
@@ -136,7 +136,7 @@ func turnLoop(clients []*data.PlayerClient, player *data.PlayerState, client *da
 			return nil
 		}
 
-		broadcast(clients, data.CraftUpdateScore(player.Info.UserId, player.Scores))
+		broadcast(clients, data.CraftUpdateScore(player.Info.UserID, player.Scores))
 	}
 }
 
@@ -165,7 +165,7 @@ func diceSelection(clients []*data.PlayerClient, player *data.PlayerState, clien
 				continue
 			}
 
-			broadcast(clients, data.CraftDiceTouched(player.Info.UserId, player.Dice))
+			broadcast(clients, data.CraftDiceTouched(player.Info.UserID, player.Dice))
 
 			selected, extra := scoreCounts(countValues(player.Dice, false))
 			player.Scores.Selected = selected
@@ -174,7 +174,7 @@ func diceSelection(clients []*data.PlayerClient, player *data.PlayerState, clien
 			}
 
 			hasExtraDice = extra
-			broadcast(clients, data.CraftUpdateScore(player.Info.UserId, player.Scores))
+			broadcast(clients, data.CraftUpdateScore(player.Info.UserID, player.Scores))
 
 		case data.VarScoreRoll:
 			var scoreRoll data.VariantScoreRoll
@@ -184,7 +184,7 @@ func diceSelection(clients []*data.PlayerClient, player *data.PlayerState, clien
 				continue
 			}
 
-			if player.Info.UserId != scoreRoll.PlayerId {
+			if player.Info.UserID != scoreRoll.PlayerID {
 				_ = client.SendMessage(message.CraftControlError(errBadPlayer, "bad player id"))
 				continue
 			}
@@ -199,7 +199,7 @@ func diceSelection(clients []*data.PlayerClient, player *data.PlayerState, clien
 				continue
 			}
 
-			broadcast(clients, data.CraftScoreRoll(player.Info.UserId))
+			broadcast(clients, data.CraftScoreRoll(player.Info.UserID))
 			return true, nil
 
 		case data.VarEndTurn:
@@ -210,7 +210,7 @@ func diceSelection(clients []*data.PlayerClient, player *data.PlayerState, clien
 				continue
 			}
 
-			if player.Info.UserId != endTurn.PlayerId {
+			if player.Info.UserID != endTurn.PlayerID {
 				_ = client.SendMessage(message.CraftControlError(errBadPlayer, "bad player id"))
 				continue
 			}
@@ -220,7 +220,7 @@ func diceSelection(clients []*data.PlayerClient, player *data.PlayerState, clien
 				continue
 			}
 
-			broadcast(clients, data.CraftEndTurn(player.Info.UserId))
+			broadcast(clients, data.CraftEndTurn(player.Info.UserID))
 			return false, nil
 		}
 	}
@@ -250,7 +250,7 @@ func rollDice(dice []*data.Dice) {
 
 func touchDice(dice []*data.Dice, touch *data.VariantDiceTouch) bool {
 	for _, d := range dice {
-		if d.Id == touch.DiceId {
+		if d.ID == touch.DiceID {
 			if !d.Playable {
 				return false
 			}

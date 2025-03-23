@@ -75,8 +75,8 @@ func portalHandler(ctx *gin.Context) {
 
 	wsChannel := wschan.NewWebSocketChannel(conn)
 
-	writeTopic := connect.PlayerToGameQueue(gameToken.GameId, gameToken.UserId)
-	readTopic := connect.GameToPlayerQueue(gameToken.GameId, gameToken.UserId)
+	writeTopic := connect.PlayerToGameQueue(gameToken.GameID, gameToken.UserID)
+	readTopic := connect.GameToPlayerQueue(gameToken.GameID, gameToken.UserID)
 	rabbitChannel, err := channel.OpenRabbitChannel(rabbitConnection, writeTopic, readTopic)
 	if err != nil {
 		log.Println("Failed to open rabbit channel:", err)
@@ -84,6 +84,6 @@ func portalHandler(ctx *gin.Context) {
 		return
 	}
 
-	log.Printf("Opening portal between user %s and game %s\n", gameToken.UserId, gameToken.GameId)
+	log.Printf("Opening portal between user %s and game %s\n", gameToken.UserID, gameToken.GameID)
 	go loop.OpenPortal(wsChannel, rabbitChannel, gameToken)
 }

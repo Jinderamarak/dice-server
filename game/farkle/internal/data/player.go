@@ -33,9 +33,9 @@ type PlayerClient struct {
 	importantHandler *func(*message.Message)
 }
 
-func NewPlayerClient(playerId uuid.UUID, ch playerChannel) *PlayerClient {
+func NewPlayerClient(playerID uuid.UUID, ch playerChannel) *PlayerClient {
 	p := &PlayerClient{
-		id:       playerId,
+		id:       playerID,
 		channel:  ch,
 		state:    atomic.Int32{},
 		hasTurn:  atomic.Bool{},
@@ -89,7 +89,7 @@ func (c *PlayerClient) updateStateWithMessage(msg *message.Message) {
 			return
 		}
 
-		if data.UserId == c.id {
+		if data.UserID == c.id {
 			c.state.Store(PlayerStateConnected)
 		}
 	case message.VarControlDisconnected:
@@ -99,7 +99,7 @@ func (c *PlayerClient) updateStateWithMessage(msg *message.Message) {
 			return
 		}
 
-		if data.UserId == c.id {
+		if data.UserID == c.id {
 			c.state.Store(PlayerStateDisconnected)
 		}
 	}

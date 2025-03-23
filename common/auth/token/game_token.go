@@ -10,23 +10,23 @@ import (
 const SuperSecret = "my-256-bit-secret"
 
 var (
-	ErrGameMissingUserId = errors.New("missing user ID")
-	ErrGameMissingGameId = errors.New("missing game ID")
+	ErrGameMissingUserID = errors.New("missing user ID")
+	ErrGameMissingGameID = errors.New("missing game ID")
 )
 
 type GameToken struct {
-	UserId uuid.UUID `json:"userId"`
-	GameId uuid.UUID `json:"gameId"`
+	UserID uuid.UUID `json:"userId"`
+	GameID uuid.UUID `json:"gameId"`
 	jwt.RegisteredClaims
 }
 
 func (token *GameToken) Validate() error {
-	if token.UserId == uuid.Nil {
-		return ErrGameMissingUserId
+	if token.UserID == uuid.Nil {
+		return ErrGameMissingUserID
 	}
 
-	if token.GameId == uuid.Nil {
-		return ErrGameMissingGameId
+	if token.GameID == uuid.Nil {
+		return ErrGameMissingGameID
 	}
 
 	return validateRegisteredClaims(&token.RegisteredClaims)
@@ -52,10 +52,10 @@ func ValidateGameToken(tokenString string, secret []byte) (*GameToken, error) {
 	return claims, nil
 }
 
-func NewGameToken(userId, gameId uuid.UUID, issuer string, issuedAt, expiresAt time.Time) *GameToken {
+func NewGameToken(userID, gameID uuid.UUID, issuer string, issuedAt, expiresAt time.Time) *GameToken {
 	return &GameToken{
-		UserId: userId,
-		GameId: gameId,
+		UserID: userID,
+		GameID: gameID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    issuer,
 			IssuedAt:  jwt.NewNumericDate(issuedAt),

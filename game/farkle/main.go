@@ -91,7 +91,7 @@ func startLobby(conn *amqp.Connection, msg amqp.Delivery) error {
 		return err
 	}
 
-	log.Println("Creating lobby for game:", createLobby.GameId)
+	log.Println("Creating lobby for game:", createLobby.GameID)
 	go lobby.RunLobby(conn, &createLobby)
 	return nil
 }

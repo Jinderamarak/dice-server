@@ -6,7 +6,7 @@ import (
 )
 
 type GameState struct {
-	Id            uuid.UUID      `json:"id"`
+	ID            uuid.UUID      `json:"id"`
 	Target        int            `json:"target"`
 	CurrentPlayer uuid.UUID      `json:"currentPlayer"`
 	Players       []*PlayerState `json:"players"`

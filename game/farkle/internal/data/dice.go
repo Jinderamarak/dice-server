@@ -12,7 +12,7 @@ type diceRoller interface {
 var Roller diceRoller = rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
 
 type Dice struct {
-	Id       uuid.UUID `json:"id"`
+	ID       uuid.UUID `json:"id"`
 	Value    int       `json:"value"`
 	Selected bool      `json:"selected"`
 	Playable bool      `json:"playable"`
@@ -20,7 +20,7 @@ type Dice struct {
 
 func NewDice(id uuid.UUID) *Dice {
 	return &Dice{
-		Id:       id,
+		ID:       id,
 		Value:    1,
 		Selected: false,
 		Playable: true,

@@ -4,6 +4,6 @@ import "github.com/google/uuid"
 
 const CreateLobbyQueue = "/create/farkle"
 
-func JoinLobbyQueue(gameId uuid.UUID) string {
-	return "/join/farkle/" + gameId.String()
+func JoinLobbyQueue(gameID uuid.UUID) string {
+	return "/join/farkle/" + gameID.String()
 }

@@ -12,7 +12,7 @@ func OpenPortal(player *wschan.WebSocketChannel, server *channel.RabbitChannel, 
 	defer player.Close()
 	defer server.Close()
 
-	if err := server.SendMessage(message.CraftControlConnected(gameToken.UserId)); err != nil {
+	if err := server.SendMessage(message.CraftControlConnected(gameToken.UserID)); err != nil {
 		log.Println("Failed to send connected message to rabbit")
 		_ = player.WriteMessage(message.CraftControlError("control-internal", "internal server error"))
 		return
@@ -35,12 +35,12 @@ func OpenPortal(player *wschan.WebSocketChannel, server *channel.RabbitChannel, 
 		case msg := <-server.ReadChannel():
 			if err := player.WriteMessage(msg); err != nil {
 				log.Println("Failed to send message to websocket:", err)
-				_ = server.SendMessage(message.CraftControlDisconnected(gameToken.UserId))
+				_ = server.SendMessage(message.CraftControlDisconnected(gameToken.UserID))
 				return
 			}
 		case <-player.Closed():
 			log.Println("Closed by websocket")
-			_ = server.SendMessage(message.CraftControlDisconnected(gameToken.UserId))
+			_ = server.SendMessage(message.CraftControlDisconnected(gameToken.UserID))
 			return
 		case <-server.Closed():
 			log.Println("Closed by rabbit")

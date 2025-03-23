@@ -10,11 +10,11 @@ const (
 )
 
 type VariantControlConnected struct {
-	UserId uuid.UUID `json:"userId"`
+	UserID uuid.UUID `json:"userId"`
 }
 
 type VariantControlDisconnected struct {
-	UserId uuid.UUID `json:"userId"`
+	UserID uuid.UUID `json:"userId"`
 }
 
 type VariantControlTerminate struct {
@@ -26,12 +26,12 @@ type VariantControlError struct {
 	Message string `json:"message"`
 }
 
-func CraftControlConnected(userId uuid.UUID) *Message {
-	return MustCraftMessage(VarControlConnected, VariantControlConnected{UserId: userId})
+func CraftControlConnected(userID uuid.UUID) *Message {
+	return MustCraftMessage(VarControlConnected, VariantControlConnected{UserID: userID})
 }
 
-func CraftControlDisconnected(userId uuid.UUID) *Message {
-	return MustCraftMessage(VarControlDisconnected, VariantControlDisconnected{UserId: userId})
+func CraftControlDisconnected(userID uuid.UUID) *Message {
+	return MustCraftMessage(VarControlDisconnected, VariantControlDisconnected{UserID: userID})
 }
 
 func CraftControlTerminate(reason string) *Message {

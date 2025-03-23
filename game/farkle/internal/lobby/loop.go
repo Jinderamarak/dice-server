@@ -20,13 +20,13 @@ const joinLobbyTimeout = time.Minute
 
 func RunLobby(conn *amqp.Connection, msg *connect.CreateLobbyMessage) {
 	firstPlayer := msg.Player
-	firstClient, err := createPlayer(conn, msg.GameId, firstPlayer.UserId)
+	firstClient, err := createPlayer(conn, msg.GameID, firstPlayer.UserID)
 	if err != nil {
 		log.Println("Failed to create player:", err)
 		return
 	}
 
-	secondClient, secondPlayer, err := waitForOtherPlayer(conn, msg.GameId)
+	secondClient, secondPlayer, err := waitForOtherPlayer(conn, msg.GameID)
 	if err != nil {
 		log.Println("Failed waiting for other player:", err)
 		return
@@ -37,8 +37,8 @@ func RunLobby(conn *amqp.Connection, msg *connect.CreateLobbyMessage) {
 	canceled := make(chan struct{})
 
 	log.Println("Waiting for both players to connect")
-	go waitForConnection(firstClient, firstPlayer.UserId, firstConnected, canceled)
-	go waitForConnection(secondClient, secondPlayer.UserId, secondConnected, canceled)
+	go waitForConnection(firstClient, firstPlayer.UserID, firstConnected, canceled)
+	go waitForConnection(secondClient, secondPlayer.UserID, secondConnected, canceled)
 
 	firstIsDone := false
 	secondIsDone := false
@@ -96,19 +96,19 @@ func abandonConnecting(first *data.PlayerClient, second *data.PlayerClient, reas
 	second.Close()
 }
 
-func createPlayer(conn *amqp.Connection, gameId, playerId uuid.UUID) (*data.PlayerClient, error) {
-	writingQueue := portal.GameToPlayerQueue(gameId, playerId)
-	readingQueue := portal.PlayerToGameQueue(gameId, playerId)
+func createPlayer(conn *amqp.Connection, gameID, playerID uuid.UUID) (*data.PlayerClient, error) {
+	writingQueue := portal.GameToPlayerQueue(gameID, playerID)
+	readingQueue := portal.PlayerToGameQueue(gameID, playerID)
 
 	rabbit, err := channel.OpenRabbitChannel(conn, writingQueue, readingQueue)
 	if err != nil {
 		return nil, err
 	}
 
-	return data.NewPlayerClient(playerId, rabbit), nil
+	return data.NewPlayerClient(playerID, rabbit), nil
 }
 
-func waitForOtherPlayer(conn *amqp.Connection, gameId uuid.UUID) (*data.PlayerClient, *connect.LobbyPlayer, error) {
+func waitForOtherPlayer(conn *amqp.Connection, gameID uuid.UUID) (*data.PlayerClient, *connect.LobbyPlayer, error) {
 	ch, err := conn.Channel()
 	if err != nil {
 		return nil, nil, err
@@ -116,7 +116,7 @@ func waitForOtherPlayer(conn *amqp.Connection, gameId uuid.UUID) (*data.PlayerCl
 	defer utility.CloseAndIgnore(ch)
 
 	q, err := ch.QueueDeclare(
-		connect.JoinLobbyQueue(gameId),
+		connect.JoinLobbyQueue(gameID),
 		false,
 		true,
 		false,
@@ -152,7 +152,7 @@ func waitForOtherPlayer(conn *amqp.Connection, gameId uuid.UUID) (*data.PlayerCl
 		}
 
 		log.Println("Joining player:", joinLobby.Player.Username)
-		client, err := createPlayer(conn, gameId, joinLobby.Player.UserId)
+		client, err := createPlayer(conn, gameID, joinLobby.Player.UserID)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -166,18 +166,18 @@ func waitForOtherPlayer(conn *amqp.Connection, gameId uuid.UUID) (*data.PlayerCl
 func createGameState(first, second *connect.LobbyPlayer, create *connect.CreateLobbyMessage) *data.GameState {
 	firstDice := make([]*data.Dice, len(first.DiceSet))
 	for i, d := range first.DiceSet {
-		firstDice[i] = data.NewDice(d.Id)
+		firstDice[i] = data.NewDice(d.ID)
 	}
 
 	secondDice := make([]*data.Dice, len(second.DiceSet))
 	for i, d := range second.DiceSet {
-		secondDice[i] = data.NewDice(d.Id)
+		secondDice[i] = data.NewDice(d.ID)
 	}
 
 	return &data.GameState{
-		Id:            create.GameId,
+		ID:            create.GameID,
 		Target:        create.Target,
-		CurrentPlayer: first.UserId,
+		CurrentPlayer: first.UserID,
 		Players: []*data.PlayerState{
 			{
 				Info:   *first,
@@ -193,7 +193,7 @@ func createGameState(first, second *connect.LobbyPlayer, create *connect.CreateL
 	}
 }
 
-func waitForConnection(client *data.PlayerClient, playerId uuid.UUID, connected chan<- error, canceled <-chan struct{}) {
+func waitForConnection(client *data.PlayerClient, playerID uuid.UUID, connected chan<- error, canceled <-chan struct{}) {
 	client.SetOnTurn()
 	defer client.SetOffTurn()
 
@@ -218,7 +218,7 @@ func waitForConnection(client *data.PlayerClient, playerId uuid.UUID, connected 
 					continue
 				}
 
-				if controlConnected.UserId == playerId {
+				if controlConnected.UserID == playerID {
 					close(connected)
 					return
 				}
