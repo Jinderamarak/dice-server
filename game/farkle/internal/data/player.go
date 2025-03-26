@@ -24,6 +24,8 @@ type PlayerClient struct {
 
 	hasTurn  atomic.Bool
 	incoming chan *client.Message
+
+	gameStateHandler *func() *GameState
 }
 
 func NewPlayerClient(playerID uuid.UUID, ch playerChannel) *PlayerClient {
@@ -49,7 +51,24 @@ func (c *PlayerClient) readingLoop() {
 				return
 			}
 
-			if !c.hasTurn.Load() && !IsImportantMessage(msg) {
+			if msg.Variant == VarPleaseSync {
+				if c.gameStateHandler == nil {
+					continue
+				}
+
+				state := (*c.gameStateHandler)()
+				if state == nil {
+					continue
+				}
+
+				err := c.Send(CraftSyncState(state))
+				if err != nil {
+					log.Println("Error sending sync state:", err)
+				}
+				continue
+			}
+
+			if !c.hasTurn.Load() {
 				continue
 			}
 
@@ -96,4 +115,8 @@ func (c *PlayerClient) Closing() <-chan struct{} {
 
 func (c *PlayerClient) SetTurn(isMyTurn bool) {
 	c.hasTurn.Store(isMyTurn)
+}
+
+func (c *PlayerClient) SetGameStateHandler(handler func() *GameState) {
+	c.gameStateHandler = &handler
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"math/rand"
+	"sync"
 	"time"
 )
 
@@ -23,6 +24,7 @@ const (
 	errExtraDice    = "farkle-extra-dice"
 	errNoneSelected = "farkle-none-selected"
 	errBadPlayer    = "farkle-bad-player"
+	errUnexpected   = "farkle-unexpected"
 )
 
 func PlayFarkle(gameState *data.GameState, clients []*data.PlayerClient) {
@@ -32,10 +34,19 @@ func PlayFarkle(gameState *data.GameState, clients []*data.PlayerClient) {
 		}
 	}()
 
+	stateMu := sync.RWMutex{}
+	for _, c := range clients {
+		c.SetGameStateHandler(func() *data.GameState {
+			stateMu.RLock()
+			defer stateMu.RUnlock()
+			return gameState
+		})
+	}
+
 	broadcast(clients, data.CraftGameBegin(gameState))
 	time.Sleep(beginSleep)
 
-	err := gameLoop(gameState, clients)
+	err := gameLoop(gameState, &stateMu, clients)
 	if err != nil {
 		log.Println("Game terminated:", err)
 		broadcast(clients, data.CraftError(errGeneral, "server error"))
@@ -54,16 +65,18 @@ func broadcast(clients []*data.PlayerClient, msg *client.Message) {
 	}
 }
 
-func gameLoop(gameState *data.GameState, clients []*data.PlayerClient) error {
+func gameLoop(gameState *data.GameState, stateMu *sync.RWMutex, clients []*data.PlayerClient) error {
 	currentPlayerIdx := rand.Intn(len(gameState.Players))
 	for {
 		currentPlayerIdx = (currentPlayerIdx + 1) % len(gameState.Players)
 		currentPlayer := gameState.Players[currentPlayerIdx]
 		currentClient := clients[currentPlayerIdx]
 
+		stateMu.Lock()
 		gameState.CurrentPlayer = currentPlayer.Info.UserID
+		stateMu.Unlock()
 
-		err := turnLoop(clients, currentPlayer, currentClient)
+		err := turnLoop(clients, stateMu, currentPlayer, currentClient)
 		if err != nil {
 			return err
 		}
@@ -78,7 +91,7 @@ func gameLoop(gameState *data.GameState, clients []*data.PlayerClient) error {
 	}
 }
 
-func turnLoop(clients []*data.PlayerClient, playerState *data.PlayerState, playerClient *data.PlayerClient) error {
+func turnLoop(clients []*data.PlayerClient, stateMu *sync.RWMutex, playerState *data.PlayerState, playerClient *data.PlayerClient) error {
 	log.Println("New turn:", playerState.Info.Username)
 
 	playerClient.SetTurn(true)
@@ -87,28 +100,40 @@ func turnLoop(clients []*data.PlayerClient, playerState *data.PlayerState, playe
 	broadcast(clients, data.CraftTurnBegin(playerState.Info.UserID))
 	time.Sleep(turnBeginSleep)
 
+	stateMu.Lock()
 	playerState.Scores.Turn = 0
 	playerState.Scores.Selected = 0
 	resetDice(playerState.Dice)
+	stateMu.Unlock()
 
 	for {
+		stateMu.Lock()
 		rollDice(playerState.Dice)
+		stateMu.Unlock()
+
 		busted := hasBusted(countValues(playerState.Dice, true))
 		broadcast(clients, data.CraftDiceRoll(playerState.Dice, busted))
 
 		if busted {
 			log.Println("Player busted")
+
+			stateMu.Lock()
 			playerState.Scores.Turn = 0
 			playerState.Scores.Selected = 0
+			stateMu.Unlock()
+
 			broadcast(clients, data.CraftUpdateScore(playerState.Info.UserID, playerState.Scores))
 			return nil
 		}
 
-		rollAgain, err := diceSelection(clients, playerState, playerClient, time.Now().Add(pickTimeout))
+		rollAgain, err := diceSelection(clients, stateMu, playerState, playerClient, time.Now().Add(pickTimeout))
 		if err != nil {
 			if errors.Is(err, client.ErrRecvTimeout) {
+				stateMu.Lock()
 				playerState.Scores.Selected = 0
 				playerState.Scores.Turn = 0
+				stateMu.Unlock()
+
 				broadcast(clients, data.CraftTurnTimeout(playerState.Info.UserID))
 				return nil
 			} else {
@@ -116,21 +141,23 @@ func turnLoop(clients []*data.PlayerClient, playerState *data.PlayerState, playe
 			}
 		}
 
+		stateMu.Lock()
 		playerState.Scores.Turn += playerState.Scores.Selected
 		playerState.Scores.Selected = 0
-
 		moveSelectedToUnplayable(playerState.Dice)
 
 		if !rollAgain {
 			playerState.Scores.Total += playerState.Scores.Turn
+			stateMu.Unlock()
 			return nil
 		}
+		stateMu.Unlock()
 
 		broadcast(clients, data.CraftUpdateScore(playerState.Info.UserID, playerState.Scores))
 	}
 }
 
-func diceSelection(clients []*data.PlayerClient, playerState *data.PlayerState, playerClient *data.PlayerClient, deadline time.Time) (bool, error) {
+func diceSelection(clients []*data.PlayerClient, stateMu *sync.RWMutex, playerState *data.PlayerState, playerClient *data.PlayerClient, deadline time.Time) (bool, error) {
 	hasExtraDice := false
 	for {
 		log.Println("Waiting for next step")
@@ -149,7 +176,11 @@ func diceSelection(clients []*data.PlayerClient, playerState *data.PlayerState, 
 				continue
 			}
 
-			if !touchDice(playerState.Dice, &diceTouch) {
+			stateMu.Lock()
+			validDice := touchDice(playerState.Dice, &diceTouch)
+			stateMu.Unlock()
+
+			if !validDice {
 				log.Println("Player touched bad dice")
 				_ = playerClient.Send(data.CraftError(errBadDice, "touched bad dice"))
 				continue
@@ -157,11 +188,13 @@ func diceSelection(clients []*data.PlayerClient, playerState *data.PlayerState, 
 
 			broadcast(clients, data.CraftDiceTouched(playerState.Info.UserID, playerState.Dice))
 
+			stateMu.Lock()
 			selected, extra := scoreCounts(countValues(playerState.Dice, false))
 			playerState.Scores.Selected = selected
 			if extra {
 				playerState.Scores.Selected = 0
 			}
+			stateMu.Unlock()
 
 			hasExtraDice = extra
 			broadcast(clients, data.CraftUpdateScore(playerState.Info.UserID, playerState.Scores))
@@ -212,6 +245,8 @@ func diceSelection(clients []*data.PlayerClient, playerState *data.PlayerState, 
 
 			broadcast(clients, data.CraftEndTurn(playerState.Info.UserID))
 			return false, nil
+		default:
+			_ = playerClient.Send(data.CraftError(errUnexpected, "unexpected variant"))
 		}
 	}
 }
