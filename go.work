@@ -5,5 +5,4 @@ use (
 	./game-master
 	./game/common
 	./game/farkle
-	./portal
 )
