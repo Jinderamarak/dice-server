@@ -1,45 +1,37 @@
 package data
 
 import (
-	"dice-server/common/channel"
-	"dice-server/common/channel/message"
+	"dice-server/game/common/client"
 	"github.com/google/uuid"
 	"log"
 	"sync/atomic"
 	"time"
 )
 
-const (
-	PlayerStateDisconnected = iota
-	PlayerStateConnected
-)
+const messageLimit = 16
 
 type playerChannel interface {
 	Close()
-	SendMessage(message *message.Message) error
-	ReadMessage(timeout time.Duration) (*message.Message, error)
-	ReadChannel() <-chan *message.Message
-	Closed() <-chan struct{}
+	Send(message *client.Message) error
+	Receive(timeout time.Duration) (*client.Message, error)
+	Consume() <-chan *client.Message
+	Closing() <-chan struct{}
 }
 
 type PlayerClient struct {
 	id      uuid.UUID
 	channel playerChannel
 
-	state    atomic.Int32
 	hasTurn  atomic.Bool
-	incoming chan *message.Message
-
-	importantHandler *func(*message.Message)
+	incoming chan *client.Message
 }
 
 func NewPlayerClient(playerID uuid.UUID, ch playerChannel) *PlayerClient {
 	p := &PlayerClient{
 		id:       playerID,
 		channel:  ch,
-		state:    atomic.Int32{},
 		hasTurn:  atomic.Bool{},
-		incoming: make(chan *message.Message, channel.MessageLimit),
+		incoming: make(chan *client.Message, messageLimit),
 	}
 
 	go p.readingLoop()
@@ -49,25 +41,15 @@ func NewPlayerClient(playerID uuid.UUID, ch playerChannel) *PlayerClient {
 func (c *PlayerClient) readingLoop() {
 	for {
 		select {
-		case <-c.channel.Closed():
-			c.state.Store(PlayerStateDisconnected)
+		case <-c.channel.Closing():
 			return
-		case msg := <-c.channel.ReadChannel():
-			if msg == nil {
+		case msg, ok := <-c.channel.Consume():
+			if !ok {
 				c.Close()
 				return
 			}
 
-			c.updateStateWithMessage(msg)
-
-			if IsImportantMessage(msg) {
-				if c.importantHandler != nil {
-					(*c.importantHandler)(msg)
-				}
-				continue
-			}
-
-			if !c.hasTurn.Load() {
+			if !c.hasTurn.Load() && !IsImportantMessage(msg) {
 				continue
 			}
 
@@ -80,80 +62,38 @@ func (c *PlayerClient) readingLoop() {
 	}
 }
 
-func (c *PlayerClient) updateStateWithMessage(msg *message.Message) {
-	switch msg.Variant {
-	case message.VarControlConnected:
-		var data message.VariantControlConnected
-		if err := msg.UnmarshalData(&data); err != nil {
-			log.Println("Error unmarshalling control message:", err)
-			return
-		}
-
-		if data.UserID == c.id {
-			c.state.Store(PlayerStateConnected)
-		}
-	case message.VarControlDisconnected:
-		var data message.VariantControlDisconnected
-		if err := msg.UnmarshalData(&data); err != nil {
-			log.Println("Error unmarshalling control message:", err)
-			return
-		}
-
-		if data.UserID == c.id {
-			c.state.Store(PlayerStateDisconnected)
-		}
-	}
-}
-
 func (c *PlayerClient) Close() {
-	c.state.Store(PlayerStateDisconnected)
 	c.channel.Close()
 }
 
-func (c *PlayerClient) SendMessage(message *message.Message) error {
-	return c.channel.SendMessage(message)
+func (c *PlayerClient) Send(message *client.Message) error {
+	return c.channel.Send(message)
 }
 
-func (c *PlayerClient) ReadMessage(timeout time.Duration) (*message.Message, error) {
+func (c *PlayerClient) Receive(timeout time.Duration) (*client.Message, error) {
 	if timeout < 0 {
 		select {
-		case <-c.channel.Closed():
-			return nil, channel.ErrClientClosed
+		case <-c.channel.Closing():
+			return nil, client.ErrClientClosed
 		case msg := <-c.incoming:
 			return msg, nil
 		}
 	}
 
 	select {
-	case <-c.channel.Closed():
-		return nil, channel.ErrClientClosed
+	case <-c.channel.Closing():
+		return nil, client.ErrClientClosed
 	case msg := <-c.incoming:
 		return msg, nil
 	case <-time.After(timeout):
-		return nil, channel.ErrReadTimeout
+		return nil, client.ErrRecvTimeout
 	}
 }
 
-func (c *PlayerClient) ReadChannel() <-chan *message.Message {
-	return c.incoming
+func (c *PlayerClient) Closing() <-chan struct{} {
+	return c.channel.Closing()
 }
 
-func (c *PlayerClient) Closed() <-chan struct{} {
-	return c.channel.Closed()
-}
-
-func (c *PlayerClient) GetState() int32 {
-	return c.state.Load()
-}
-
-func (c *PlayerClient) SetOnTurn() {
-	c.hasTurn.Store(true)
-}
-
-func (c *PlayerClient) SetOffTurn() {
-	c.hasTurn.Store(false)
-}
-
-func (c *PlayerClient) SetImportantHandler(handler *func(*message.Message)) {
-	c.importantHandler = handler
+func (c *PlayerClient) SetTurn(isMyTurn bool) {
+	c.hasTurn.Store(isMyTurn)
 }

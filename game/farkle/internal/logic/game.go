@@ -1,8 +1,7 @@
 package logic
 
 import (
-	"dice-server/common/channel"
-	"dice-server/common/channel/message"
+	"dice-server/game/common/client"
 	"dice-server/game/farkle/internal/data"
 	"errors"
 	"log"
@@ -26,52 +25,43 @@ const (
 	errBadPlayer    = "farkle-bad-player"
 )
 
-func PlayFarkle(state *data.GameState, clients []*data.PlayerClient) {
+func PlayFarkle(gameState *data.GameState, clients []*data.PlayerClient) {
 	defer func() {
-		for _, client := range clients {
-			client.Close()
+		for _, c := range clients {
+			c.Close()
 		}
 	}()
 
-	for _, client := range clients {
-		handler := func(msg *message.Message) {
-			if msg.Variant == data.VarSyncState {
-				_ = client.SendMessage(data.CraftSyncState(state))
-			}
-		}
-		client.SetImportantHandler(&handler)
-	}
-
-	broadcast(clients, data.CraftGameBegin(state))
+	broadcast(clients, data.CraftGameBegin(gameState))
 	time.Sleep(beginSleep)
 
-	err := gameLoop(state, clients)
+	err := gameLoop(gameState, clients)
 	if err != nil {
 		log.Println("Game terminated:", err)
-		broadcast(clients, message.CraftControlError(errGeneral, "server error"))
+		broadcast(clients, data.CraftError(errGeneral, "server error"))
 	}
 
-	broadcast(clients, message.CraftControlTerminate("game closed"))
+	broadcast(clients, data.CraftTerminate("game closed"))
 	time.Sleep(terminateSleep)
 }
 
-func broadcast(clients []*data.PlayerClient, msg *message.Message) {
-	for _, client := range clients {
-		err := client.SendMessage(msg)
+func broadcast(clients []*data.PlayerClient, msg *client.Message) {
+	for _, c := range clients {
+		err := c.Send(msg)
 		if err != nil {
 			log.Println("Error broadcasting to client:", err)
 		}
 	}
 }
 
-func gameLoop(state *data.GameState, clients []*data.PlayerClient) error {
-	currentPlayerIdx := rand.Intn(len(state.Players))
+func gameLoop(gameState *data.GameState, clients []*data.PlayerClient) error {
+	currentPlayerIdx := rand.Intn(len(gameState.Players))
 	for {
-		currentPlayerIdx = (currentPlayerIdx + 1) % len(state.Players)
-		currentPlayer := state.Players[currentPlayerIdx]
+		currentPlayerIdx = (currentPlayerIdx + 1) % len(gameState.Players)
+		currentPlayer := gameState.Players[currentPlayerIdx]
 		currentClient := clients[currentPlayerIdx]
 
-		state.CurrentPlayer = currentPlayer.Info.UserID
+		gameState.CurrentPlayer = currentPlayer.Info.UserID
 
 		err := turnLoop(clients, currentPlayer, currentClient)
 		if err != nil {
@@ -80,7 +70,7 @@ func gameLoop(state *data.GameState, clients []*data.PlayerClient) error {
 
 		broadcast(clients, data.CraftUpdateScore(currentPlayer.Info.UserID, currentPlayer.Scores))
 
-		if currentPlayer.Scores.Total >= state.Target {
+		if currentPlayer.Scores.Total >= gameState.Target {
 			log.Println("Game ended, winner:", currentPlayer.Info.Username)
 			broadcast(clients, data.CraftGameEnd(currentPlayer.Info.UserID))
 			return nil
@@ -88,63 +78,63 @@ func gameLoop(state *data.GameState, clients []*data.PlayerClient) error {
 	}
 }
 
-func turnLoop(clients []*data.PlayerClient, player *data.PlayerState, client *data.PlayerClient) error {
-	log.Println("New turn:", player.Info.Username)
+func turnLoop(clients []*data.PlayerClient, playerState *data.PlayerState, playerClient *data.PlayerClient) error {
+	log.Println("New turn:", playerState.Info.Username)
 
-	client.SetOnTurn()
-	defer client.SetOffTurn()
+	playerClient.SetTurn(true)
+	defer playerClient.SetTurn(false)
 
-	broadcast(clients, data.CraftTurnBegin(player.Info.UserID))
+	broadcast(clients, data.CraftTurnBegin(playerState.Info.UserID))
 	time.Sleep(turnBeginSleep)
 
-	player.Scores.Turn = 0
-	player.Scores.Selected = 0
-	resetDice(player.Dice)
+	playerState.Scores.Turn = 0
+	playerState.Scores.Selected = 0
+	resetDice(playerState.Dice)
 
 	for {
-		rollDice(player.Dice)
-		busted := hasBusted(countValues(player.Dice, true))
-		broadcast(clients, data.CraftDiceRoll(player.Dice, busted))
+		rollDice(playerState.Dice)
+		busted := hasBusted(countValues(playerState.Dice, true))
+		broadcast(clients, data.CraftDiceRoll(playerState.Dice, busted))
 
 		if busted {
 			log.Println("Player busted")
-			player.Scores.Turn = 0
-			player.Scores.Selected = 0
-			broadcast(clients, data.CraftUpdateScore(player.Info.UserID, player.Scores))
+			playerState.Scores.Turn = 0
+			playerState.Scores.Selected = 0
+			broadcast(clients, data.CraftUpdateScore(playerState.Info.UserID, playerState.Scores))
 			return nil
 		}
 
-		rollAgain, err := diceSelection(clients, player, client, time.Now().Add(pickTimeout))
+		rollAgain, err := diceSelection(clients, playerState, playerClient, time.Now().Add(pickTimeout))
 		if err != nil {
-			if errors.Is(err, channel.ErrReadTimeout) {
-				player.Scores.Selected = 0
-				player.Scores.Turn = 0
-				broadcast(clients, data.CraftTurnTimeout(player.Info.UserID))
+			if errors.Is(err, client.ErrRecvTimeout) {
+				playerState.Scores.Selected = 0
+				playerState.Scores.Turn = 0
+				broadcast(clients, data.CraftTurnTimeout(playerState.Info.UserID))
 				return nil
 			} else {
 				return err
 			}
 		}
 
-		player.Scores.Turn += player.Scores.Selected
-		player.Scores.Selected = 0
+		playerState.Scores.Turn += playerState.Scores.Selected
+		playerState.Scores.Selected = 0
 
-		moveSelectedToUnplayable(player.Dice)
+		moveSelectedToUnplayable(playerState.Dice)
 
 		if !rollAgain {
-			player.Scores.Total += player.Scores.Turn
+			playerState.Scores.Total += playerState.Scores.Turn
 			return nil
 		}
 
-		broadcast(clients, data.CraftUpdateScore(player.Info.UserID, player.Scores))
+		broadcast(clients, data.CraftUpdateScore(playerState.Info.UserID, playerState.Scores))
 	}
 }
 
-func diceSelection(clients []*data.PlayerClient, player *data.PlayerState, client *data.PlayerClient, deadline time.Time) (bool, error) {
+func diceSelection(clients []*data.PlayerClient, playerState *data.PlayerState, playerClient *data.PlayerClient, deadline time.Time) (bool, error) {
 	hasExtraDice := false
 	for {
 		log.Println("Waiting for next step")
-		step, err := client.ReadMessage(deadline.Sub(time.Now()))
+		step, err := playerClient.Receive(deadline.Sub(time.Now()))
 		if err != nil {
 			return false, err
 		}
@@ -155,72 +145,72 @@ func diceSelection(clients []*data.PlayerClient, player *data.PlayerState, clien
 			var diceTouch data.VariantDiceTouch
 			if err = step.UnmarshalData(&diceTouch); err != nil {
 				log.Println("Error unmarshalling dice touch:", err)
-				_ = client.SendMessage(message.CraftControlError(errBadData, "sent bad data"))
+				_ = playerClient.Send(data.CraftError(errBadData, "sent bad data"))
 				continue
 			}
 
-			if !touchDice(player.Dice, &diceTouch) {
+			if !touchDice(playerState.Dice, &diceTouch) {
 				log.Println("Player touched bad dice")
-				_ = client.SendMessage(message.CraftControlError(errBadDice, "touched bad dice"))
+				_ = playerClient.Send(data.CraftError(errBadDice, "touched bad dice"))
 				continue
 			}
 
-			broadcast(clients, data.CraftDiceTouched(player.Info.UserID, player.Dice))
+			broadcast(clients, data.CraftDiceTouched(playerState.Info.UserID, playerState.Dice))
 
-			selected, extra := scoreCounts(countValues(player.Dice, false))
-			player.Scores.Selected = selected
+			selected, extra := scoreCounts(countValues(playerState.Dice, false))
+			playerState.Scores.Selected = selected
 			if extra {
-				player.Scores.Selected = 0
+				playerState.Scores.Selected = 0
 			}
 
 			hasExtraDice = extra
-			broadcast(clients, data.CraftUpdateScore(player.Info.UserID, player.Scores))
+			broadcast(clients, data.CraftUpdateScore(playerState.Info.UserID, playerState.Scores))
 
 		case data.VarScoreRoll:
 			var scoreRoll data.VariantScoreRoll
 			if err = step.UnmarshalData(&scoreRoll); err != nil {
-				log.Println("Error unmarshalling score roll:", err)
-				_ = client.SendMessage(message.CraftControlError(errBadData, "sent bad data"))
+				log.Println("Error unmarshalling score and roll:", err)
+				_ = playerClient.Send(data.CraftError(errBadData, "sent bad data"))
 				continue
 			}
 
-			if player.Info.UserID != scoreRoll.PlayerID {
-				_ = client.SendMessage(message.CraftControlError(errBadPlayer, "bad player id"))
+			if playerState.Info.UserID != scoreRoll.PlayerID {
+				_ = playerClient.Send(data.CraftError(errBadPlayer, "bad player id"))
 				continue
 			}
 
-			if player.Scores.Selected == 0 {
-				_ = client.SendMessage(message.CraftControlError(errNoneSelected, "no dice selected"))
+			if playerState.Scores.Selected == 0 {
+				_ = playerClient.Send(data.CraftError(errNoneSelected, "no dice selected"))
 				continue
 			}
 
 			if hasExtraDice {
-				_ = client.SendMessage(message.CraftControlError(errExtraDice, "extra dice selected"))
+				_ = playerClient.Send(data.CraftError(errExtraDice, "extra dice selected"))
 				continue
 			}
 
-			broadcast(clients, data.CraftScoreRoll(player.Info.UserID))
+			broadcast(clients, data.CraftScoreRoll(playerState.Info.UserID))
 			return true, nil
 
 		case data.VarEndTurn:
 			var endTurn data.VariantEndTurn
 			if err = step.UnmarshalData(&endTurn); err != nil {
 				log.Println("Error unmarshalling end turn:", err)
-				_ = client.SendMessage(message.CraftControlError(errBadData, "sent bad data"))
+				_ = playerClient.Send(data.CraftError(errBadData, "sent bad data"))
 				continue
 			}
 
-			if player.Info.UserID != endTurn.PlayerID {
-				_ = client.SendMessage(message.CraftControlError(errBadPlayer, "bad player id"))
+			if playerState.Info.UserID != endTurn.PlayerID {
+				_ = playerClient.Send(data.CraftError(errBadPlayer, "bad player id"))
 				continue
 			}
 
 			if hasExtraDice {
-				_ = client.SendMessage(message.CraftControlError(errExtraDice, "extra dice selected"))
+				_ = playerClient.Send(data.CraftError(errExtraDice, "extra dice selected"))
 				continue
 			}
 
-			broadcast(clients, data.CraftEndTurn(player.Info.UserID))
+			broadcast(clients, data.CraftEndTurn(playerState.Info.UserID))
 			return false, nil
 		}
 	}

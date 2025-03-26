@@ -1,7 +1,7 @@
 package data
 
 import (
-	"dice-server/common/channel/message"
+	"dice-server/game/common/client"
 	"github.com/google/uuid"
 )
 
@@ -18,6 +18,8 @@ const (
 	VarScoreRoll   = "farkle-score-roll"
 	VarEndTurn     = "farkle-end-turn"
 	VarGameEnd     = "farkle-game-end"
+	VarError       = "farkle-error"
+	VarTerminate   = "farkle-terminate"
 )
 
 type VariantGameBegin struct {
@@ -71,59 +73,72 @@ type VariantGameEnd struct {
 	WinnerID uuid.UUID `json:"winnerId"`
 }
 
-func CraftGameBegin(state *GameState) *message.Message {
-	return message.MustCraftMessage(VarGameBegin, VariantGameBegin{State: state})
+type VariantError struct {
+	Kind    string `json:"kind"`
+	Message string `json:"message"`
 }
 
-func CraftPleaseSync() *message.Message {
-	return message.MustCraftMessage(VarPleaseSync, VariantPleaseSync{})
+type VariantTerminate struct {
+	Reason string `json:"reason"`
 }
 
-func CraftSyncState(state *GameState) *message.Message {
-	return message.MustCraftMessage(VarSyncState, VariantSyncState{State: state})
+func CraftGameBegin(state *GameState) *client.Message {
+	return client.MustCraftMessage(VarGameBegin, VariantGameBegin{State: state})
 }
 
-func CraftTurnBegin(playerID uuid.UUID) *message.Message {
-	return message.MustCraftMessage(VarTurnBegin, VariantTurnBegin{PlayerID: playerID})
+func CraftPleaseSync() *client.Message {
+	return client.MustCraftMessage(VarPleaseSync, VariantPleaseSync{})
 }
 
-func CraftDiceRoll(dice []*Dice, busted bool) *message.Message {
-	return message.MustCraftMessage(VarDiceRoll, VariantDiceRoll{Dice: dice, Busted: busted})
+func CraftSyncState(state *GameState) *client.Message {
+	return client.MustCraftMessage(VarSyncState, VariantSyncState{State: state})
 }
 
-func CraftDiceTouch(diceID uuid.UUID, selected bool) *message.Message {
-	return message.MustCraftMessage(VarDiceTouch, VariantDiceTouch{DiceID: diceID, Selected: selected})
+func CraftTurnBegin(playerID uuid.UUID) *client.Message {
+	return client.MustCraftMessage(VarTurnBegin, VariantTurnBegin{PlayerID: playerID})
 }
 
-func CraftDiceTouched(playerID uuid.UUID, dice []*Dice) *message.Message {
-	return message.MustCraftMessage(VarDiceTouched, VariantDiceTouched{PlayerID: playerID, Dice: dice})
+func CraftDiceRoll(dice []*Dice, busted bool) *client.Message {
+	return client.MustCraftMessage(VarDiceRoll, VariantDiceRoll{Dice: dice, Busted: busted})
 }
 
-func CraftUpdateScore(playerID uuid.UUID, scores PlayerScores) *message.Message {
-	return message.MustCraftMessage(VarUpdateScore, VariantUpdateScore{PlayerID: playerID, Scores: scores})
+func CraftDiceTouch(diceID uuid.UUID, selected bool) *client.Message {
+	return client.MustCraftMessage(VarDiceTouch, VariantDiceTouch{DiceID: diceID, Selected: selected})
 }
 
-func CraftTurnTimeout(playerID uuid.UUID) *message.Message {
-	return message.MustCraftMessage(VarTurnTimeout, VariantTurnTimeout{PlayerID: playerID})
+func CraftDiceTouched(playerID uuid.UUID, dice []*Dice) *client.Message {
+	return client.MustCraftMessage(VarDiceTouched, VariantDiceTouched{PlayerID: playerID, Dice: dice})
 }
 
-func CraftScoreRoll(playerID uuid.UUID) *message.Message {
-	return message.MustCraftMessage(VarScoreRoll, VariantScoreRoll{PlayerID: playerID})
+func CraftUpdateScore(playerID uuid.UUID, scores PlayerScores) *client.Message {
+	return client.MustCraftMessage(VarUpdateScore, VariantUpdateScore{PlayerID: playerID, Scores: scores})
 }
 
-func CraftEndTurn(playerID uuid.UUID) *message.Message {
-	return message.MustCraftMessage(VarEndTurn, VariantEndTurn{PlayerID: playerID})
+func CraftTurnTimeout(playerID uuid.UUID) *client.Message {
+	return client.MustCraftMessage(VarTurnTimeout, VariantTurnTimeout{PlayerID: playerID})
 }
 
-func CraftGameEnd(winnerID uuid.UUID) *message.Message {
-	return message.MustCraftMessage(VarGameEnd, VariantGameEnd{WinnerID: winnerID})
+func CraftScoreRoll(playerID uuid.UUID) *client.Message {
+	return client.MustCraftMessage(VarScoreRoll, VariantScoreRoll{PlayerID: playerID})
 }
 
-func IsImportantMessage(msg *message.Message) bool {
-	if message.IsControlMessage(msg) {
-		return true
-	}
+func CraftEndTurn(playerID uuid.UUID) *client.Message {
+	return client.MustCraftMessage(VarEndTurn, VariantEndTurn{PlayerID: playerID})
+}
 
+func CraftGameEnd(winnerID uuid.UUID) *client.Message {
+	return client.MustCraftMessage(VarGameEnd, VariantGameEnd{WinnerID: winnerID})
+}
+
+func CraftError(kind, message string) *client.Message {
+	return client.MustCraftMessage(VarError, VariantError{Kind: kind, Message: message})
+}
+
+func CraftTerminate(reason string) *client.Message {
+	return client.MustCraftMessage(VarTerminate, VariantTerminate{Reason: reason})
+}
+
+func IsImportantMessage(msg *client.Message) bool {
 	switch msg.Variant {
 	case VarSyncState:
 		return true

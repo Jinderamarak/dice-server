@@ -115,3 +115,11 @@ func (client *WebSocketClient) Receive(timeout time.Duration) (*Message, error) 
 		return nil, ErrRecvTimeout
 	}
 }
+
+func (client *WebSocketClient) Consume() <-chan *Message {
+	return client.incoming
+}
+
+func (client *WebSocketClient) Closing() <-chan struct{} {
+	return client.closing
+}

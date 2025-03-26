@@ -194,7 +194,7 @@ func createGameState(first, second *connect.LobbyPlayer, create *connect.CreateL
 }
 
 func waitForConnection(client *data.PlayerClient, playerID uuid.UUID, connected chan<- error, canceled <-chan struct{}) {
-	client.SetOnTurn()
+	client.SetTurnOn()
 	defer client.SetOffTurn()
 
 	if client.GetState() == data.PlayerStateConnected {
@@ -202,8 +202,8 @@ func waitForConnection(client *data.PlayerClient, playerID uuid.UUID, connected 
 		return
 	}
 
-	importantMsgs := make(chan *message.Message)
-	importantHandler := func(msg *message.Message) {
+	importantMsgs := make(chan *client.Message)
+	importantHandler := func(msg *client.Message) {
 		importantMsgs <- msg
 	}
 	client.SetImportantHandler(&importantHandler)
@@ -223,7 +223,7 @@ func waitForConnection(client *data.PlayerClient, playerID uuid.UUID, connected 
 					return
 				}
 			}
-		case <-client.Closed():
+		case <-client.Closing():
 			connected <- errors.New("client closed")
 			return
 		case <-canceled:
