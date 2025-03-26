@@ -2,43 +2,25 @@ package main
 
 import (
 	"dice-server/common/auth/token"
+	"dice-server/common/queue"
 	"dice-server/common/utility"
 	"dice-server/game/farkle/connect"
-	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/pkg/errors"
 	"log"
 	"time"
 )
 
-var rabbitConn *amqp.Connection
-var rabbitChannel *amqp.Channel
-var farkleCreateQueue amqp.Queue
+var queuePool *queue.Pool
 
 func main() {
 	var err error
 
-	if rabbitConn, err = amqp.Dial("amqp://guest:guest@localhost:5672/"); err != nil {
+	if queuePool, err = queue.NewPool(16, "amqp://guest:guest@localhost:5672/"); err != nil {
 		panic(err)
 	}
-	defer utility.CloseAndIgnore(rabbitConn)
-
-	if rabbitChannel, err = rabbitConn.Channel(); err != nil {
-		panic(err)
-	}
-	defer utility.CloseAndIgnore(rabbitChannel)
-
-	if farkleCreateQueue, err = rabbitChannel.QueueDeclare(
-		connect.CreateLobbyQueue,
-		true,
-		false,
-		false,
-		false,
-		nil,
-	); err != nil {
-		panic(err)
-	}
+	defer utility.CloseAndIgnore(queuePool)
 
 	server := gin.Default()
 	server.Use(corsMiddleware())
@@ -66,60 +48,22 @@ func corsMiddleware() gin.HandlerFunc {
 }
 
 func publishCreateGameFarkle(data connect.CreateLobbyMessage) error {
-	dataBytes, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
+	publisher := queuePool.GetPublisher(connect.CreateLobbyQueueDeclaration)
+	defer publisher.Close()
 
-	if err = rabbitChannel.Publish(
-		"",
-		farkleCreateQueue.Name,
-		false,
-		false,
-		amqp.Publishing{
-			DeliveryMode: amqp.Persistent,
-			ContentType:  "application/json",
-			Body:         dataBytes,
-		}); err != nil {
-		return err
+	if err := publisher.PublishJSON(data); err != nil {
+		return errors.Wrap(err, "failed to publish create game message")
 	}
-
 	return nil
 }
 
 func publishJoinGameFarkle(gameID uuid.UUID, data connect.JoinLobbyMessage) error {
-	queue, err := rabbitChannel.QueueDeclare(
-		connect.JoinLobbyQueue(gameID),
-		false,
-		true,
-		false,
-		false,
-		amqp.Table{
-			"x-expires": int32(1000 * 10),
-		},
-	)
-	if err != nil {
-		return err
-	}
+	publisher := queuePool.GetPublisher(connect.JoinLobbyQueueDeclaration(gameID))
+	defer publisher.Close()
 
-	dataBytes, err := json.Marshal(data)
-	if err != nil {
-		return err
+	if err := publisher.PublishJSON(data); err != nil {
+		return errors.Wrap(err, "failed to publish join game message")
 	}
-
-	log.Println("Publishing join game message to:", queue.Name)
-	if err = rabbitChannel.Publish(
-		"",
-		queue.Name,
-		false,
-		false,
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        dataBytes,
-		}); err != nil {
-		return err
-	}
-
 	return nil
 }
 

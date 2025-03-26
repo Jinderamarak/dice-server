@@ -47,3 +47,12 @@ func (pool *Pool) GetConsumer(declaration Declaration) *Consumer {
 func (pool *Pool) GetPublisher(declaration Declaration) *Publisher {
 	return newPublisher(pool, declaration)
 }
+
+func (pool *Pool) Close() error {
+	for _, rc := range pool.conns {
+		rc.mu.Lock()
+		_ = rc.conn.Close()
+		rc.mu.Unlock()
+	}
+	return nil
+}
