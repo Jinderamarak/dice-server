@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	messageLimit       = 32
+	messageBufferLimit = 32
 	messageLengthLimit = 4096
 )
 
@@ -30,8 +30,8 @@ func NewWebSocketClient() *WebSocketClient {
 	return &WebSocketClient{
 		conn:     nil,
 		closing:  make(chan struct{}),
-		incoming: make(chan *Message, messageLimit),
-		outgoing: make(chan *Message, messageLimit),
+		incoming: make(chan *Message, messageBufferLimit),
+		outgoing: make(chan *Message, messageBufferLimit),
 	}
 }
 

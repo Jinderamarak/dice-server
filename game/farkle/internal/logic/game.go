@@ -27,12 +27,8 @@ const (
 	errUnexpected   = "farkle-unexpected"
 )
 
-func PlayFarkle(gameState *data.GameState, clients []*data.PlayerClient) {
-	defer func() {
-		for _, c := range clients {
-			c.Close()
-		}
-	}()
+func PlayFarkle(manager *client.WebSocketManager, gameState *data.GameState, clients []*data.PlayerClient) {
+	defer manager.CloseGame(gameState.ID)
 
 	stateMu := sync.RWMutex{}
 	for _, c := range clients {

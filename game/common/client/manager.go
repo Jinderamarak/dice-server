@@ -36,38 +36,44 @@ func (clients *gameClients) close() {
 type WebSocketManager struct {
 	upgrader websocket.Upgrader
 
-	clientsMu sync.Mutex
-	clients   map[uuid.UUID]*gameClients
+	gamesMu sync.Mutex
+	games   map[uuid.UUID]*gameClients
 }
 
 func NewWebSocketManager(upgrader websocket.Upgrader) *WebSocketManager {
 	return &WebSocketManager{
-		upgrader:  upgrader,
-		clientsMu: sync.Mutex{},
-		clients:   make(map[uuid.UUID]*gameClients),
+		upgrader: upgrader,
+		gamesMu:  sync.Mutex{},
+		games:    make(map[uuid.UUID]*gameClients),
 	}
 }
 
 func (manager *WebSocketManager) getOrCreateGame(gameID uuid.UUID) *gameClients {
-	manager.clientsMu.Lock()
-	defer manager.clientsMu.Unlock()
+	manager.gamesMu.Lock()
+	defer manager.gamesMu.Unlock()
 
-	if clients, ok := manager.clients[gameID]; ok {
-		return clients
+	if game, ok := manager.games[gameID]; ok {
+		return game
 	}
 
-	clients := &gameClients{
+	game := &gameClients{
 		mu:      sync.Mutex{},
 		clients: make(map[uuid.UUID]*WebSocketClient),
 	}
 
-	manager.clients[gameID] = clients
-	return clients
+	manager.games[gameID] = game
+	return game
+}
+
+func (manager *WebSocketManager) GetClient(gameID uuid.UUID, userID uuid.UUID) *WebSocketClient {
+	game := manager.getOrCreateGame(gameID)
+	client := game.getOrCreateClient(userID)
+	return client
 }
 
 func (manager *WebSocketManager) UpgradeClient(gameID uuid.UUID, userID uuid.UUID, conn *websocket.Conn) *WebSocketClient {
-	clients := manager.getOrCreateGame(gameID)
-	client := clients.getOrCreateClient(userID)
+	game := manager.getOrCreateGame(gameID)
+	client := game.getOrCreateClient(userID)
 
 	client.reconnect(conn)
 
@@ -75,11 +81,11 @@ func (manager *WebSocketManager) UpgradeClient(gameID uuid.UUID, userID uuid.UUI
 }
 
 func (manager *WebSocketManager) CloseGame(gameID uuid.UUID) {
-	clients := manager.getOrCreateGame(gameID)
-	clients.close()
+	game := manager.getOrCreateGame(gameID)
+	game.close()
 
-	manager.clientsMu.Lock()
-	defer manager.clientsMu.Unlock()
+	manager.gamesMu.Lock()
+	defer manager.gamesMu.Unlock()
 
-	delete(manager.clients, gameID)
+	delete(manager.games, gameID)
 }

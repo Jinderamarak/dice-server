@@ -2,7 +2,6 @@ package data
 
 import (
 	"dice-server/game/common/client"
-	"github.com/google/uuid"
 	"log"
 	"sync/atomic"
 	"time"
@@ -11,7 +10,6 @@ import (
 const messageLimit = 16
 
 type playerChannel interface {
-	Close()
 	Send(message *client.Message) error
 	Receive(timeout time.Duration) (*client.Message, error)
 	Consume() <-chan *client.Message
@@ -19,7 +17,6 @@ type playerChannel interface {
 }
 
 type PlayerClient struct {
-	id      uuid.UUID
 	channel playerChannel
 
 	hasTurn  atomic.Bool
@@ -28,9 +25,8 @@ type PlayerClient struct {
 	gameStateHandler *func() *GameState
 }
 
-func NewPlayerClient(playerID uuid.UUID, ch playerChannel) *PlayerClient {
+func NewPlayerClient(ch playerChannel) *PlayerClient {
 	p := &PlayerClient{
-		id:       playerID,
 		channel:  ch,
 		hasTurn:  atomic.Bool{},
 		incoming: make(chan *client.Message, messageLimit),
@@ -47,7 +43,7 @@ func (c *PlayerClient) readingLoop() {
 			return
 		case msg, ok := <-c.channel.Consume():
 			if !ok {
-				c.Close()
+				//	underlying channel closed
 				return
 			}
 
@@ -81,10 +77,6 @@ func (c *PlayerClient) readingLoop() {
 	}
 }
 
-func (c *PlayerClient) Close() {
-	c.channel.Close()
-}
-
 func (c *PlayerClient) Send(message *client.Message) error {
 	return c.channel.Send(message)
 }
@@ -107,6 +99,10 @@ func (c *PlayerClient) Receive(timeout time.Duration) (*client.Message, error) {
 	case <-time.After(timeout):
 		return nil, client.ErrRecvTimeout
 	}
+}
+
+func (c *PlayerClient) Receiving() <-chan *client.Message {
+	return c.incoming
 }
 
 func (c *PlayerClient) Closing() <-chan struct{} {

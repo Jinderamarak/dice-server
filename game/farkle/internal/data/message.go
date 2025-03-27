@@ -6,6 +6,7 @@ import (
 )
 
 const (
+	VarPlayerReady = "farkle-player-ready"
 	VarGameBegin   = "farkle-game-begin"
 	VarPleaseSync  = "farkle-please-sync"
 	VarSyncState   = "farkle-sync-state"
@@ -21,6 +22,10 @@ const (
 	VarError       = "farkle-error"
 	VarTerminate   = "farkle-terminate"
 )
+
+type VariantPlayerReady struct {
+	PlayerID uuid.UUID `json:"playerId"`
+}
 
 type VariantGameBegin struct {
 	State *GameState `json:"state"`
@@ -82,6 +87,10 @@ type VariantTerminate struct {
 	Reason string `json:"reason"`
 }
 
+func CraftPlayerReady(playerID uuid.UUID) *client.Message {
+	return client.MustCraftMessage(VarPlayerReady, VariantPlayerReady{PlayerID: playerID})
+}
+
 func CraftGameBegin(state *GameState) *client.Message {
 	return client.MustCraftMessage(VarGameBegin, VariantGameBegin{State: state})
 }
@@ -140,7 +149,7 @@ func CraftTerminate(reason string) *client.Message {
 
 func IsImportantMessage(msg *client.Message) bool {
 	switch msg.Variant {
-	case VarSyncState:
+	case VarSyncState, VarPlayerReady:
 		return true
 	default:
 		return false
