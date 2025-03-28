@@ -48,7 +48,7 @@ func corsMiddleware() gin.HandlerFunc {
 }
 
 func publishCreateGameFarkle(data connect.CreateLobbyMessage) error {
-	publisher := queuePool.GetPublisher(connect.CreateLobbyQueueDeclaration)
+	publisher := queuePool.GetPublisher(connect.CreateLobbyQueue)
 	defer publisher.Close()
 
 	if err := publisher.PublishJSON(data); err != nil {
@@ -58,7 +58,7 @@ func publishCreateGameFarkle(data connect.CreateLobbyMessage) error {
 }
 
 func publishJoinGameFarkle(gameID uuid.UUID, data connect.JoinLobbyMessage) error {
-	publisher := queuePool.GetPublisher(connect.JoinLobbyQueueDeclaration(gameID))
+	publisher := queuePool.GetPublisher(connect.JoinLobbyQueue(gameID))
 	defer publisher.Close()
 
 	if err := publisher.PublishJSON(data); err != nil {

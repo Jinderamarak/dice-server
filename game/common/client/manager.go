@@ -34,17 +34,14 @@ func (clients *gameClients) close() {
 }
 
 type WebSocketManager struct {
-	upgrader websocket.Upgrader
-
 	gamesMu sync.Mutex
 	games   map[uuid.UUID]*gameClients
 }
 
-func NewWebSocketManager(upgrader websocket.Upgrader) *WebSocketManager {
+func NewWebSocketManager() *WebSocketManager {
 	return &WebSocketManager{
-		upgrader: upgrader,
-		gamesMu:  sync.Mutex{},
-		games:    make(map[uuid.UUID]*gameClients),
+		gamesMu: sync.Mutex{},
+		games:   make(map[uuid.UUID]*gameClients),
 	}
 }
 
@@ -88,4 +85,15 @@ func (manager *WebSocketManager) CloseGame(gameID uuid.UUID) {
 	defer manager.gamesMu.Unlock()
 
 	delete(manager.games, gameID)
+}
+
+func (manager *WebSocketManager) Close() {
+	manager.gamesMu.Lock()
+	defer manager.gamesMu.Unlock()
+
+	for _, game := range manager.games {
+		game.close()
+	}
+
+	manager.games = make(map[uuid.UUID]*gameClients)
 }

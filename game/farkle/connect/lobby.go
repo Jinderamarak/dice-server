@@ -8,6 +8,12 @@ type CreateLobbyMessage struct {
 	Player LobbyPlayer `json:"player"`
 }
 
+type AcceptedLobbyMessage struct {
+	GameID    uuid.UUID `json:"gameId"`
+	ServerID  uuid.UUID `json:"serverId"`
+	ServerURL string    `json:"serverUrl"`
+}
+
 type JoinLobbyMessage struct {
 	Player LobbyPlayer `json:"player"`
 }

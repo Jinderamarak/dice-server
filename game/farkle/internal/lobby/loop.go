@@ -7,26 +7,24 @@ import (
 	"dice-server/game/farkle/internal/data"
 	"dice-server/game/farkle/internal/logic"
 	"encoding/json"
-	"errors"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"log"
 	"time"
 )
 
 const joinLobbyTimeout = time.Minute
 
-func RunLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.CreateLobbyMessage) {
+func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.CreateLobbyMessage) error {
 	firstPlayer := msg.Player
 	firstClient, err := createPlayer(manager, msg.GameID, firstPlayer.UserID)
 	if err != nil {
-		log.Println("Failed to create player:", err)
-		return
+		return errors.Wrap(err, "failed to create first player")
 	}
 
 	secondClient, secondPlayer, err := waitForOtherPlayer(pool, manager, msg.GameID)
 	if err != nil {
-		log.Println("Failed waiting for other player:", err)
-		return
+		return errors.Wrap(err, "failed to wait for other player")
 	}
 
 	firstConnected := make(chan error)
@@ -44,10 +42,9 @@ func RunLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.C
 		select {
 		case first, ok := <-firstConnected:
 			if ok && first != nil {
-				log.Println("First player failed to connect:", first)
 				close(canceled)
 				abandonConnecting(manager, msg.GameID, firstClient, secondClient, "player failed to connect")
-				return
+				return errors.Wrap(first, "first player failed to connect")
 			}
 
 			if !firstIsDone {
@@ -56,10 +53,9 @@ func RunLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.C
 			firstIsDone = true
 		case second, ok := <-secondConnected:
 			if ok && second != nil {
-				log.Println("Second player failed to connect:", second)
 				close(canceled)
 				abandonConnecting(manager, msg.GameID, firstClient, secondClient, "player failed to connect")
-				return
+				return errors.Wrap(second, "second player failed to connect")
 			}
 
 			if !secondIsDone {
@@ -67,16 +63,16 @@ func RunLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.C
 			}
 			secondIsDone = true
 		case <-time.After(deadline.Sub(time.Now())):
-			log.Println("Players took too long")
 			close(canceled)
 			abandonConnecting(manager, msg.GameID, firstClient, secondClient, "player did not connect")
-			return
+			return errors.Wrap(err, "players took too long to connect")
 		}
 	}
 
-	log.Println("Creating game of farkle")
 	state := createGameState(&firstPlayer, secondPlayer, msg)
-	go logic.PlayFarkle(manager, state, []*data.PlayerClient{firstClient, secondClient})
+	logic.PlayFarkle(manager, state, []*data.PlayerClient{firstClient, secondClient})
+
+	return nil
 }
 
 func abandonConnecting(manager *client.WebSocketManager, gameID uuid.UUID, first *data.PlayerClient, second *data.PlayerClient, reason string) {
@@ -96,7 +92,7 @@ func createPlayer(manager *client.WebSocketManager, gameID, userID uuid.UUID) (*
 func waitForOtherPlayer(pool *queue.Pool, manager *client.WebSocketManager, gameID uuid.UUID) (*data.PlayerClient, *connect.LobbyPlayer, error) {
 	log.Println("Waiting for other player to join:", gameID)
 
-	consumer := pool.GetConsumer(connect.JoinLobbyQueueDeclaration(gameID))
+	consumer := pool.GetConsumer(connect.JoinLobbyQueue(gameID))
 	defer consumer.Close()
 
 	messages := consumer.Consume()

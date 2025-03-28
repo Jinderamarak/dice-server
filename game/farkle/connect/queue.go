@@ -5,24 +5,27 @@ import (
 	"github.com/google/uuid"
 )
 
-const CreateLobbyQueue = "/create/farkle"
-
-var CreateLobbyQueueDeclaration = queue.Declaration{
-	Name:      "/create/farkle",
+var CreateLobbyQueue = queue.Declaration{
+	Name:      "/farkle/create",
 	Temporary: false,
 	AutoAck:   false,
 	QoS:       true,
 }
 
-func JoinLobbyQueue(gameID uuid.UUID) string {
-	return "/join/farkle/" + gameID.String()
+func AcceptLobbyQueue(gameID uuid.UUID) queue.Declaration {
+	return queue.Declaration{
+		Name:      "/farkle/accept/" + gameID.String(),
+		Temporary: true,
+		AutoAck:   true,
+		QoS:       false,
+	}
 }
 
-func JoinLobbyQueueDeclaration(gameID uuid.UUID) queue.Declaration {
+func JoinLobbyQueue(gameID uuid.UUID) queue.Declaration {
 	return queue.Declaration{
-		Name:      JoinLobbyQueue(gameID),
+		Name:      "/farkle/join/" + gameID.String(),
 		Temporary: true,
-		AutoAck:   false,
+		AutoAck:   true,
 		QoS:       false,
 	}
 }

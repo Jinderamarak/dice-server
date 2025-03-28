@@ -1,97 +1,35 @@
 package main
 
 import (
+	"dice-server/common/queue"
 	"dice-server/common/utility"
-	"dice-server/game/farkle/connect"
+	"dice-server/game/common/client"
 	"dice-server/game/farkle/internal/lobby"
-	"encoding/json"
-	"errors"
-	amqp "github.com/rabbitmq/amqp091-go"
+	"dice-server/game/farkle/internal/web"
 	"log"
 )
 
 func main() {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	pool, err := queue.NewPool(8, "amqp://guest:guest@localhost:5672/")
 	if err != nil {
-		log.Panicf("Queue connection failed: %s", err)
+		log.Panicln("Queue pool creation failed:", err)
 	}
-	defer utility.CloseAndIgnore(conn)
+	defer utility.CloseAndIgnore(pool)
 
-	err = workerLoop(conn)
-	if err != nil {
-		log.Panicf("Worker loop failed: %s", err)
+	manager := client.NewWebSocketManager()
+	defer manager.Close()
+
+	workerResult := make(chan error)
+	go lobby.RunWorker(workerResult, pool, manager)
+
+	webResult := make(chan error)
+	entry := web.NewEntryPoint(manager)
+	go entry.Run(webResult)
+
+	select {
+	case err := <-workerResult:
+		log.Panicln("Worker loop failed:", err)
+	case err := <-webResult:
+		log.Panicln("Web server failed:", err)
 	}
-}
-
-func workerLoop(conn *amqp.Connection) error {
-	ch, err := conn.Channel()
-	if err != nil {
-		log.Println("Failed to open a channel")
-		return err
-	}
-	defer utility.CloseAndIgnore(ch)
-
-	q, err := ch.QueueDeclare(
-		connect.CreateLobbyQueue,
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
-	if err != nil {
-		log.Println("Failed to declare a queue")
-		return err
-	}
-
-	if err = ch.Qos(
-		1,
-		0,
-		false,
-	); err != nil {
-		log.Println("Failed to set QoS")
-		return err
-	}
-
-	messages, err := ch.Consume(
-		q.Name,
-		"game-farkle-worker",
-		false,
-		false,
-		false,
-		false,
-		nil,
-	)
-	if err != nil {
-		log.Println("Failed to register a consumer")
-		return err
-	}
-
-	log.Println("Starting worker loop")
-	for msg := range messages {
-		err = startLobby(conn, msg)
-		if err != nil {
-			log.Println("Failed to start lobby:", err)
-		} else {
-			err = msg.Ack(false)
-			if err != nil {
-				log.Println("Failed to ack message:", err)
-			}
-		}
-	}
-
-	return errors.New("worker ran out of messages")
-}
-
-func startLobby(conn *amqp.Connection, msg amqp.Delivery) error {
-	var createLobby connect.CreateLobbyMessage
-	err := json.Unmarshal(msg.Body, &createLobby)
-	if err != nil {
-		log.Println("Failed to unmarshal create message:", err)
-		return err
-	}
-
-	log.Println("Creating lobby for game:", createLobby.GameID)
-	go lobby.RunLobby(conn, &createLobby)
-	return nil
 }
