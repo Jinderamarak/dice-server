@@ -5,14 +5,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"log"
-	"net/url"
 )
 
 type AppConfig struct {
 	Port      int
-	RabbitURL url.URL
+	RabbitURL string
 	ServerID  uuid.UUID
-	ServerURL url.URL
+	ServerURL string
 }
 
 var Config AppConfig
@@ -24,17 +23,10 @@ func LoadConfig() error {
 	viper.SetEnvPrefix("FARKLE")
 	viper.AutomaticEnv()
 
-	port := 8080
-	viper.SetDefault("Port", port)
-
-	rabbitURL, _ := url.Parse("amqp://guest:guest@localhost:5672")
-	viper.SetDefault("RabbitURL", rabbitURL)
-
-	serverID := uuid.New()
-	viper.SetDefault("ServerID", serverID)
-
-	serverURL, _ := url.Parse("ws://localhost:8080/game/farkle")
-	viper.SetDefault("ServerURL", serverURL)
+	viper.SetDefault("Port", 8080)
+	viper.SetDefault("RabbitURL", "amqp://guest:guest@localhost:5672")
+	viper.SetDefault("ServerID", uuid.New())
+	viper.SetDefault("ServerURL", "ws://localhost:8080/game/farkle")
 
 	if err := viper.SafeWriteConfig(); err != nil {
 		log.Println("Failed to write default config file:", err)

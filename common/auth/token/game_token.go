@@ -4,7 +4,6 @@ import (
 	"errors"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"net/url"
 	"time"
 )
 
@@ -21,7 +20,7 @@ type GameToken struct {
 	UserID    uuid.UUID `json:"userId"`
 	GameID    uuid.UUID `json:"gameId"`
 	ServerID  uuid.UUID `json:"serverId"`
-	ServerURL url.URL   `json:"serverUrl"`
+	ServerURL string    `json:"serverUrl"`
 	jwt.RegisteredClaims
 }
 
@@ -38,7 +37,7 @@ func (token *GameToken) Validate() error {
 		return ErrMissingServerID
 	}
 
-	if token.ServerURL == (url.URL{}) {
+	if token.ServerURL == "" {
 		return ErrMissingServerURL
 	}
 
@@ -65,7 +64,7 @@ func ValidateGameToken(tokenString string, secret []byte) (*GameToken, error) {
 	return claims, nil
 }
 
-func NewGameToken(userID, gameID, serverID uuid.UUID, serverURL url.URL, issuer string, issuedAt, expiresAt time.Time) *GameToken {
+func NewGameToken(userID, gameID, serverID uuid.UUID, serverURL string, issuer string, issuedAt, expiresAt time.Time) *GameToken {
 	return &GameToken{
 		UserID:    userID,
 		GameID:    gameID,

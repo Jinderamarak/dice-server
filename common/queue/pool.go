@@ -2,7 +2,6 @@ package queue
 
 import (
 	"github.com/pkg/errors"
-	"net/url"
 	"sync/atomic"
 )
 
@@ -11,7 +10,7 @@ type Pool struct {
 	cursor atomic.Uint32
 }
 
-func NewPool(size int, url url.URL) (*Pool, error) {
+func NewPool(size int, url string) (*Pool, error) {
 	pool := &Pool{}
 	pool.conns = make([]*Connection, size)
 	for i := 0; i < size; i++ {

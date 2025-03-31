@@ -4,12 +4,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"log"
-	"net/url"
 )
 
 type AppConfig struct {
 	Port      int
-	RabbitURL url.URL
+	RabbitURL string
 }
 
 var Config AppConfig
@@ -21,11 +20,8 @@ func LoadConfig() error {
 	viper.SetEnvPrefix("DICE")
 	viper.AutomaticEnv()
 
-	port := 8080
-	viper.SetDefault("Port", port)
-
-	rabbitURL, _ := url.Parse("amqp://guest:guest@localhost:5672")
-	viper.SetDefault("RabbitURL", rabbitURL)
+	viper.SetDefault("Port", 8080)
+	viper.SetDefault("RabbitURL", "amqp://guest:guest@localhost:5672")
 
 	if err := viper.SafeWriteConfig(); err != nil {
 		log.Println("Failed to write default config file:", err)
