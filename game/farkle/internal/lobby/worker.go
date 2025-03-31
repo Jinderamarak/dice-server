@@ -18,6 +18,8 @@ func RunWorker(fail chan<- error, pool *queue.Pool, manager *client.WebSocketMan
 
 func workerLoop(pool *queue.Pool, manager *client.WebSocketManager) error {
 	consumer := pool.GetConsumer(connect.CreateLobbyQueue)
+	defer consumer.Close()
+
 	messages := consumer.Consume()
 	for msg := range messages {
 		err := attemptLobby(pool, manager, &msg)
@@ -54,6 +56,7 @@ func startLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect
 
 	publisher := pool.GetPublisher(connect.AcceptLobbyQueue(msg.GameID))
 	_ = publisher.PublishJSON(acceptation)
+	publisher.Close()
 
 	err := runLobby(pool, manager, msg)
 	if err != nil {
