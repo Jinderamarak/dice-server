@@ -1,11 +1,10 @@
 package queue
 
 import (
-	"dice-server/common/utility"
 	"encoding/json"
-	"fmt"
 	"github.com/pkg/errors"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"log"
 )
 
 type rawMessage struct {
@@ -32,14 +31,8 @@ func newPublisher(pool *Pool, queue Declaration) *Publisher {
 	return pub
 }
 
-func (pub *Publisher) keepPublishing(conn *amqp.Connection, lastMsg **rawMessage) error {
-	ch, err := conn.Channel()
-	if err != nil {
-		return errors.Wrap(err, "failed to open a channel")
-	}
-	defer utility.CloseAndIgnore(ch)
-
-	que, err := pub.declaration.declareQueue(ch)
+func (pub *Publisher) keepPublishing(ch *Channel, lastMsg **rawMessage) error {
+	que, err := pub.declaration.declareQueue(ch.inner)
 	if err != nil {
 		return errors.Wrap(err, "failed to declare a queue")
 	}
@@ -58,7 +51,7 @@ func (pub *Publisher) keepPublishing(conn *amqp.Connection, lastMsg **rawMessage
 			}
 		}
 
-		if err := ch.Publish(
+		if err := ch.inner.Publish(
 			"",
 			que.Name,
 			false,
@@ -78,10 +71,10 @@ func (pub *Publisher) keepPublishing(conn *amqp.Connection, lastMsg **rawMessage
 func (pub *Publisher) loop() {
 	var lastMsg *rawMessage
 	for {
-		c := pub.pool.get()
-		err := pub.keepPublishing(c.conn, &lastMsg)
+		ch := pub.pool.channel()
+		err := pub.keepPublishing(ch, &lastMsg)
 		if err != nil {
-			fmt.Println("Failed to publish message:", err)
+			log.Println("Failed to publish message:", err)
 		} else {
 			return
 		}

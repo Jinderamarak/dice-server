@@ -1,10 +1,10 @@
 package queue
 
 import (
-	"dice-server/common/utility"
-	"fmt"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"log"
 )
 
 type Consumer struct {
@@ -26,20 +26,25 @@ func newConsumer(pool *Pool, queue Declaration) *Consumer {
 	return cons
 }
 
-func (cons *Consumer) listen(conn *amqp.Connection) error {
-	ch, err := conn.Channel()
-	if err != nil {
-		return errors.Wrap(err, "failed to open a channel")
+func (cons *Consumer) listen(conn *Connection) error {
+	var ch *Channel
+	if cons.declaration.QoS {
+		exc, err := cons.pool.exclusive()
+		if err != nil {
+			return errors.Wrap(err, "failed to create exclusive channel")
+		}
+		ch = exc
+	} else {
+		ch = conn.channel()
 	}
-	defer utility.CloseAndIgnore(ch)
 
-	que, err := cons.declaration.declareQueue(ch)
+	que, err := cons.declaration.declareQueue(ch.inner)
 	if err != nil {
 		return errors.Wrap(err, "failed to declare a queue")
 	}
 
 	if cons.declaration.QoS {
-		if err = ch.Qos(
+		if err = ch.inner.Qos(
 			1,
 			0,
 			false,
@@ -48,9 +53,10 @@ func (cons *Consumer) listen(conn *amqp.Connection) error {
 		}
 	}
 
-	msgs, err := ch.Consume(
+	consumerName := uuid.New().String()
+	msgs, err := ch.inner.Consume(
 		que.Name,
-		"",
+		consumerName,
 		cons.declaration.AutoAck,
 		false,
 		false,
@@ -60,6 +66,12 @@ func (cons *Consumer) listen(conn *amqp.Connection) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to consume messages")
 	}
+
+	defer func(ch *amqp.Channel, consumer string, noWait bool) {
+		if err := ch.Cancel(consumer, noWait); err != nil {
+			log.Println("Failed to cancel consumer:", err)
+		}
+	}(ch.inner, consumerName, true)
 
 	for {
 		select {
@@ -76,10 +88,10 @@ func (cons *Consumer) listen(conn *amqp.Connection) error {
 
 func (cons *Consumer) loop() {
 	for {
-		c := cons.pool.get()
-		err := cons.listen(c.conn)
+		conn := cons.pool.connection()
+		err := cons.listen(conn)
 		if err != nil {
-			fmt.Println("Consumer failed at listening:", err)
+			log.Println("Consumer failed at listening:", err)
 		} else {
 			return
 		}

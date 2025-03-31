@@ -24,7 +24,7 @@ func main() {
 	}
 
 	var err error
-	if queuePool, err = queue.NewPool(16, config.Config.RabbitURL); err != nil {
+	if queuePool, err = queue.NewPool(16, 16, config.Config.RabbitURL); err != nil {
 		log.Panicln("Queue pool creation failed:", err)
 	}
 	defer utility.CloseAndIgnore(queuePool)

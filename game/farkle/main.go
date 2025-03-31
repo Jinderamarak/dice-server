@@ -17,7 +17,7 @@ func main() {
 
 	log.Println("Starting server with ID:", config.Config.ServerID)
 
-	pool, err := queue.NewPool(8, config.Config.RabbitURL)
+	pool, err := queue.NewPool(8, 16, config.Config.RabbitURL)
 	if err != nil {
 		log.Panicln("Queue pool creation failed:", err)
 	}

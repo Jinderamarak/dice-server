@@ -10,14 +10,14 @@ type Pool struct {
 	cursor atomic.Uint32
 }
 
-func NewPool(size int, url string) (*Pool, error) {
+func NewPool(connections, channels uint32, url string) (*Pool, error) {
 	pool := &Pool{}
-	pool.conns = make([]*Connection, size)
-	for i := 0; i < size; i++ {
-		rc, err := newConnection(url)
+	pool.conns = make([]*Connection, connections)
+	for i := uint32(0); i < connections; i++ {
+		rc, err := newConnection(url, channels)
 		if err != nil {
-			for j := 0; j < i; j++ {
-				_ = pool.conns[j].conn.Close()
+			for j := uint32(0); j < i; j++ {
+				_ = pool.conns[j].inner.Close()
 			}
 			return nil, errors.Wrapf(err, "failed to create rabbit connection at %d", i)
 		}
@@ -30,7 +30,7 @@ func NewPool(size int, url string) (*Pool, error) {
 	return pool, nil
 }
 
-func (pool *Pool) get() *Connection {
+func (pool *Pool) connection() *Connection {
 	for {
 		idx := pool.cursor.Add(1) % uint32(len(pool.conns))
 		conn := pool.conns[idx]
@@ -38,6 +38,14 @@ func (pool *Pool) get() *Connection {
 			return conn
 		}
 	}
+}
+
+func (pool *Pool) channel() *Channel {
+	return pool.connection().channel()
+}
+
+func (pool *Pool) exclusive() (*Channel, error) {
+	return pool.connection().exclusive()
 }
 
 func (pool *Pool) GetConsumer(declaration Declaration) *Consumer {
@@ -50,9 +58,9 @@ func (pool *Pool) GetPublisher(declaration Declaration) *Publisher {
 
 func (pool *Pool) Close() error {
 	for _, rc := range pool.conns {
-		rc.mu.Lock()
-		_ = rc.conn.Close()
-		rc.mu.Unlock()
+		if err := rc.Close(); err != nil {
+			return errors.Wrap(err, "failed to close connection")
+		}
 	}
 	return nil
 }
