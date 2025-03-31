@@ -1,18 +1,22 @@
 import json
 from typing import List, Any, Dict
 
+def start_game(state: Dict[str, Any]) -> str:
+    player_id = ""
+    if "playerId" in state:
+        player_id = state["playerId"]
+
+    return json.dumps({
+        "variant": "farkle-player-ready",
+        "data": {
+            "playerId": player_id,
+        }
+    })
 
 def handle_message(message: str, state: Dict[str, Any]) -> List[str]:
     data = json.loads(message)
     variant = data["variant"]
     # print(f"-> {variant}")
-
-    if variant.startswith("control"):
-        # print(f"Control message: {message}")
-        if variant == "control-terminate":
-            # print("Bye bye!")
-            raise SystemExit
-        return []
 
     is_me = False
     if "playerId" in data["data"]:
@@ -20,8 +24,6 @@ def handle_message(message: str, state: Dict[str, Any]) -> List[str]:
 
     if variant == "farkle-game-begin":
         # print("Game started!")
-        pass
-    elif variant == "farkle-please-sync":
         pass
     elif variant == "farkle-sync-state":
         pass
@@ -78,5 +80,9 @@ def handle_message(message: str, state: Dict[str, Any]) -> List[str]:
         #     print("I won!")
         # else:
         #     print("I lost!")
+    elif variant == "farkle-error":
+        pass
+    elif variant == "farkle-terminate":
+        raise SystemExit
 
     return []
