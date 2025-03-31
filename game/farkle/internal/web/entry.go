@@ -3,6 +3,8 @@ package web
 import (
 	"dice-server/common/auth/token"
 	"dice-server/game/common/client"
+	"dice-server/game/farkle/internal/config"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"net/http"
@@ -27,8 +29,8 @@ func (entry *EntryPoint) Run(fail chan<- error) {
 	server.Use(corsMiddleware())
 	server.GET("/game/farkle/:auth", entry.entryHandler)
 
-	//	TODO: get actual host
-	res := server.Run("localhost:9091")
+	host := fmt.Sprintf(":%d", config.Config.Port)
+	res := server.Run(host)
 	fail <- res
 }
 

@@ -1,6 +1,9 @@
 package connect
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"net/url"
+)
 
 type CreateLobbyMessage struct {
 	GameID uuid.UUID   `json:"gameId"`
@@ -11,7 +14,7 @@ type CreateLobbyMessage struct {
 type AcceptedLobbyMessage struct {
 	GameID    uuid.UUID `json:"gameId"`
 	ServerID  uuid.UUID `json:"serverId"`
-	ServerURL string    `json:"serverUrl"`
+	ServerURL url.URL   `json:"serverUrl"`
 }
 
 type JoinLobbyMessage struct {

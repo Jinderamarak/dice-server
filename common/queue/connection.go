@@ -4,6 +4,7 @@ import (
 	"github.com/pkg/errors"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+	"net/url"
 	"sync"
 	"time"
 )
@@ -11,14 +12,14 @@ import (
 const reconnectBackoffBase = time.Millisecond * 100
 
 type Connection struct {
-	url string
+	url url.URL
 
 	mu      sync.RWMutex
 	conn    *amqp.Connection
 	closing chan *amqp.Error
 }
 
-func newConnection(url string) (*Connection, error) {
+func newConnection(url url.URL) (*Connection, error) {
 	rc := &Connection{
 		url: url,
 	}
@@ -41,7 +42,7 @@ func (rc *Connection) setup() error {
 		}
 	}
 
-	conn, err := amqp.Dial(rc.url)
+	conn, err := amqp.Dial(rc.url.String())
 	if err != nil {
 		return errors.Wrap(err, "failed to dial rabbitmq")
 	}

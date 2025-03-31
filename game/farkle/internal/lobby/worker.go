@@ -4,8 +4,8 @@ import (
 	"dice-server/common/queue"
 	"dice-server/game/common/client"
 	"dice-server/game/farkle/connect"
+	"dice-server/game/farkle/internal/config"
 	"encoding/json"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
@@ -46,11 +46,10 @@ func attemptLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *amqp.
 }
 
 func startLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.CreateLobbyMessage) {
-	//	TODO: Fill actual data
 	acceptation := connect.AcceptedLobbyMessage{
 		GameID:    msg.GameID,
-		ServerID:  uuid.New(),
-		ServerURL: "ws://localhost:9091",
+		ServerID:  config.Config.ServerID,
+		ServerURL: config.Config.ServerURL,
 	}
 
 	publisher := pool.GetPublisher(connect.AcceptLobbyQueue(msg.GameID))

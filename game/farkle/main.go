@@ -4,13 +4,20 @@ import (
 	"dice-server/common/queue"
 	"dice-server/common/utility"
 	"dice-server/game/common/client"
+	"dice-server/game/farkle/internal/config"
 	"dice-server/game/farkle/internal/lobby"
 	"dice-server/game/farkle/internal/web"
 	"log"
 )
 
 func main() {
-	pool, err := queue.NewPool(8, "amqp://guest:guest@localhost:5672/")
+	if err := config.LoadConfig(); err != nil {
+		log.Panicln("Failed to load configuration:", err)
+	}
+
+	log.Println("Starting server with ID:", config.Config.ServerID)
+
+	pool, err := queue.NewPool(8, config.Config.RabbitURL)
 	if err != nil {
 		log.Panicln("Queue pool creation failed:", err)
 	}
