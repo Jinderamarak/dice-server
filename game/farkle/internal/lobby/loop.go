@@ -160,6 +160,9 @@ func createGameState(first, second *connect.LobbyPlayer, create *connect.CreateL
 }
 
 func waitForReady(client *data.PlayerClient, playerID uuid.UUID, connected chan<- error, canceled <-chan struct{}) {
+	client.SetTurn(true)
+	defer client.SetTurn(false)
+
 	for {
 		select {
 		case msg := <-client.Receiving():

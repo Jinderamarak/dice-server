@@ -146,12 +146,3 @@ func CraftError(kind, message string) *client.Message {
 func CraftTerminate(reason string) *client.Message {
 	return client.MustCraftMessage(VarTerminate, VariantTerminate{Reason: reason})
 }
-
-func IsImportantMessage(msg *client.Message) bool {
-	switch msg.Variant {
-	case VarSyncState, VarPlayerReady:
-		return true
-	default:
-		return false
-	}
-}
