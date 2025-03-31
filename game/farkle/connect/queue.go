@@ -29,3 +29,12 @@ func JoinLobbyQueue(gameID uuid.UUID) queue.Declaration {
 		QoS:       false,
 	}
 }
+
+func JoinedLobbyQueue(gameID uuid.UUID) queue.Declaration {
+	return queue.Declaration{
+		Name:      "/farkle/joined/" + gameID.String(),
+		Temporary: true,
+		AutoAck:   true,
+		QoS:       false,
+	}
+}

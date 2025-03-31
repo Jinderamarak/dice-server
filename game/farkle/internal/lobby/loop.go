@@ -4,6 +4,7 @@ import (
 	"dice-server/common/queue"
 	"dice-server/game/common/client"
 	"dice-server/game/farkle/connect"
+	"dice-server/game/farkle/internal/config"
 	"dice-server/game/farkle/internal/data"
 	"dice-server/game/farkle/internal/logic"
 	"encoding/json"
@@ -106,6 +107,18 @@ func waitForOtherPlayer(pool *queue.Pool, manager *client.WebSocketManager, game
 
 		log.Println("Joining player:", joinLobby.Player.Username)
 		c, err := createPlayer(manager, gameID, joinLobby.Player.UserID)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		publisher := pool.GetPublisher(connect.JoinedLobbyQueue(gameID))
+		err = publisher.PublishJSON(connect.JoinedLobbyMessage{
+			UserID:    joinLobby.Player.UserID,
+			ServerID:  config.Config.ServerID,
+			ServerURL: config.Config.ServerURL,
+		})
+
+		publisher.Close()
 		if err != nil {
 			return nil, nil, err
 		}

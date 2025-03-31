@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"net/url"
 	"time"
 )
 
@@ -12,11 +13,15 @@ const SuperSecret = "my-256-bit-secret"
 var (
 	ErrGameMissingUserID = errors.New("missing user ID")
 	ErrGameMissingGameID = errors.New("missing game ID")
+	ErrMissingServerID   = errors.New("missing server ID")
+	ErrMissingServerURL  = errors.New("missing server URL")
 )
 
 type GameToken struct {
-	UserID uuid.UUID `json:"userId"`
-	GameID uuid.UUID `json:"gameId"`
+	UserID    uuid.UUID `json:"userId"`
+	GameID    uuid.UUID `json:"gameId"`
+	ServerID  uuid.UUID `json:"serverId"`
+	ServerURL url.URL   `json:"serverUrl"`
 	jwt.RegisteredClaims
 }
 
@@ -27,6 +32,14 @@ func (token *GameToken) Validate() error {
 
 	if token.GameID == uuid.Nil {
 		return ErrGameMissingGameID
+	}
+
+	if token.ServerID == uuid.Nil {
+		return ErrMissingServerID
+	}
+
+	if token.ServerURL == (url.URL{}) {
+		return ErrMissingServerURL
 	}
 
 	return validateRegisteredClaims(&token.RegisteredClaims)
@@ -52,10 +65,12 @@ func ValidateGameToken(tokenString string, secret []byte) (*GameToken, error) {
 	return claims, nil
 }
 
-func NewGameToken(userID, gameID uuid.UUID, issuer string, issuedAt, expiresAt time.Time) *GameToken {
+func NewGameToken(userID, gameID, serverID uuid.UUID, serverURL url.URL, issuer string, issuedAt, expiresAt time.Time) *GameToken {
 	return &GameToken{
-		UserID: userID,
-		GameID: gameID,
+		UserID:    userID,
+		GameID:    gameID,
+		ServerID:  serverID,
+		ServerURL: serverURL,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    issuer,
 			IssuedAt:  jwt.NewNumericDate(issuedAt),

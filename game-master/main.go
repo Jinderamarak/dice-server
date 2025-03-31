@@ -4,21 +4,28 @@ import (
 	"dice-server/common/auth/token"
 	"dice-server/common/queue"
 	"dice-server/common/utility"
+	"dice-server/game-master/internal/config"
 	"dice-server/game/farkle/connect"
+	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"log"
+	"net/http"
 	"time"
 )
 
 var queuePool *queue.Pool
 
 func main() {
-	var err error
+	if err := config.LoadConfig(); err != nil {
+		log.Panicln("Failed to load configuration:", err)
+	}
 
-	if queuePool, err = queue.NewPool(16, "amqp://guest:guest@localhost:5672/"); err != nil {
-		panic(err)
+	var err error
+	if queuePool, err = queue.NewPool(16, config.Config.RabbitURL); err != nil {
+		log.Panicln("Queue pool creation failed:", err)
 	}
 	defer utility.CloseAndIgnore(queuePool)
 
@@ -26,8 +33,10 @@ func main() {
 	server.Use(corsMiddleware())
 	server.POST("/api/farkle", createFarkleHandler)
 	server.POST("/api/farkle/:gameId/join", joinFarkleHandler)
-	if err := server.Run("0.0.0.0:9000"); err != nil {
-		panic(err)
+
+	host := fmt.Sprintf(":%d", config.Config.Port)
+	if err = server.Run(host); err != nil {
+		log.Panicln("Failed to start server:", err)
 	}
 }
 
@@ -47,24 +56,58 @@ func corsMiddleware() gin.HandlerFunc {
 	}
 }
 
-func publishCreateGameFarkle(data connect.CreateLobbyMessage) error {
+func createGameFarkle(data connect.CreateLobbyMessage) (*connect.AcceptedLobbyMessage, error) {
 	publisher := queuePool.GetPublisher(connect.CreateLobbyQueue)
 	defer publisher.Close()
 
+	listener := queuePool.GetConsumer(connect.AcceptLobbyQueue(data.GameID))
+	defer listener.Close()
+
 	if err := publisher.PublishJSON(data); err != nil {
-		return errors.Wrap(err, "failed to publish create game message")
+		return nil, errors.Wrap(err, "failed to publish create game message")
 	}
-	return nil
+
+	messages := listener.Consume()
+	for msg := range messages {
+		var accept connect.AcceptedLobbyMessage
+		if err := json.Unmarshal(msg.Body, &accept); err != nil {
+			log.Println("Failed to unmarshal accepted lobby message:", err)
+			continue
+		}
+
+		if accept.GameID == data.GameID {
+			log.Println("Game created successfully:", accept.GameID)
+			return &accept, nil
+		}
+	}
+	return nil, errors.New("failed to receive accepted lobby message")
 }
 
-func publishJoinGameFarkle(gameID uuid.UUID, data connect.JoinLobbyMessage) error {
+func joinGameFarkle(gameID uuid.UUID, data connect.JoinLobbyMessage) (*connect.JoinedLobbyMessage, error) {
 	publisher := queuePool.GetPublisher(connect.JoinLobbyQueue(gameID))
 	defer publisher.Close()
 
+	listener := queuePool.GetConsumer(connect.JoinedLobbyQueue(gameID))
+	defer listener.Close()
+
 	if err := publisher.PublishJSON(data); err != nil {
-		return errors.Wrap(err, "failed to publish join game message")
+		return nil, errors.Wrap(err, "failed to publish join game message")
 	}
-	return nil
+
+	messages := listener.Consume()
+	for msg := range messages {
+		var joined connect.JoinedLobbyMessage
+		if err := json.Unmarshal(msg.Body, &joined); err != nil {
+			log.Println("Failed to unmarshal joined lobby message:", err)
+			continue
+		}
+
+		if joined.UserID == data.Player.UserID {
+			log.Println("Player joined successfully:", joined.UserID)
+			return &joined, nil
+		}
+	}
+	return nil, errors.New("failed to receive joined lobby message")
 }
 
 func createFarkleHandler(ctx *gin.Context) {
@@ -88,28 +131,29 @@ func createFarkleHandler(ctx *gin.Context) {
 		},
 	}
 
-	if err := publishCreateGameFarkle(createLobby); err != nil {
+	accepted, err := createGameFarkle(createLobby)
+	if err != nil {
 		log.Println("Failed to create game:", err)
-		ctx.JSON(500, gin.H{"error": "Failed to create game"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create game"})
 		return
 	}
 
-	gameToken := token.NewGameToken(playerID, gameID, "gamemaster", time.Now(), time.Now().Add(time.Hour))
+	gameToken := token.NewGameToken(playerID, gameID, accepted.ServerID, accepted.ServerURL, "gamemaster", time.Now(), time.Now().Add(time.Hour))
 	tokenString, err := gameToken.Sign([]byte(token.SuperSecret))
 	if err != nil {
 		log.Println("Failed to sign token:", err)
-		ctx.JSON(500, gin.H{"error": "Failed to sign token"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sign token"})
 		return
 	}
 
-	ctx.JSON(201, gin.H{"token": tokenString})
+	ctx.JSON(http.StatusCreated, gin.H{"token": tokenString})
 }
 
 func joinFarkleHandler(ctx *gin.Context) {
 	gameIDStr := ctx.Param("gameId")
 	gameID, err := uuid.Parse(gameIDStr)
 	if err != nil {
-		ctx.JSON(400, gin.H{"error": "Invalid game ID"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid game ID"})
 		return
 	}
 
@@ -129,19 +173,20 @@ func joinFarkleHandler(ctx *gin.Context) {
 		},
 	}
 
-	if err := publishJoinGameFarkle(gameID, joinLobby); err != nil {
+	joined, err := joinGameFarkle(gameID, joinLobby)
+	if err != nil {
 		log.Println("Failed to join game:", err)
-		ctx.JSON(500, gin.H{"error": "Failed to join game"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to join game"})
 		return
 	}
 
-	gameToken := token.NewGameToken(playerID, gameID, "gamemaster", time.Now(), time.Now().Add(time.Hour))
+	gameToken := token.NewGameToken(playerID, gameID, joined.ServerID, joined.ServerURL, "gamemaster", time.Now(), time.Now().Add(time.Hour))
 	tokenString, err := gameToken.Sign([]byte(token.SuperSecret))
 	if err != nil {
 		log.Println("Failed to sign token:", err)
-		ctx.JSON(500, gin.H{"error": "Failed to sign token"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sign token"})
 		return
 	}
 
-	ctx.JSON(200, gin.H{"token": tokenString})
+	ctx.JSON(http.StatusOK, gin.H{"token": tokenString})
 }

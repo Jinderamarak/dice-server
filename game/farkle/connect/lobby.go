@@ -21,6 +21,12 @@ type JoinLobbyMessage struct {
 	Player LobbyPlayer `json:"player"`
 }
 
+type JoinedLobbyMessage struct {
+	UserID    uuid.UUID `json:"userId"`
+	ServerID  uuid.UUID `json:"serverId"`
+	ServerURL url.URL   `json:"serverUrl"`
+}
+
 type LobbyPlayer struct {
 	UserID   uuid.UUID   `json:"userId"`
 	Username string      `json:"username"`

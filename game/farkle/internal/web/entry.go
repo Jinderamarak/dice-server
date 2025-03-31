@@ -54,13 +54,18 @@ func (entry *EntryPoint) entryHandler(ctx *gin.Context) {
 	auth := ctx.Param("auth")
 	gameToken, err := token.ValidateGameToken(auth, []byte(token.SuperSecret))
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
+
+	if gameToken.ServerID != config.Config.ServerID {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid server ID"})
 		return
 	}
 
 	conn, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upgrade connection"})
 		return
 	}
 
