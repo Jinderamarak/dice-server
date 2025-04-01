@@ -14,7 +14,8 @@ import (
 	"time"
 )
 
-const joinLobbyTimeout = time.Minute
+const playerJoinTimeout = time.Minute * 5
+const playersReadyTimeout = time.Minute
 
 func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.CreateLobbyMessage) error {
 	firstPlayer := msg.Player
@@ -23,8 +24,9 @@ func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.C
 		return errors.Wrap(err, "failed to create first player")
 	}
 
-	secondClient, secondPlayer, err := waitForOtherPlayer(pool, manager, msg.GameID)
+	secondClient, secondPlayer, err := waitForOtherPlayer(pool, manager, msg.GameID, time.Now().Add(playerJoinTimeout))
 	if err != nil {
+		abandonConnecting(manager, msg.GameID, firstClient, nil, "failed to wait for other player")
 		return errors.Wrap(err, "failed to wait for other player")
 	}
 
@@ -38,7 +40,7 @@ func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.C
 
 	firstIsDone := false
 	secondIsDone := false
-	deadline := time.Now().Add(joinLobbyTimeout)
+	deadline := time.Now().Add(playersReadyTimeout)
 	for !firstIsDone || !secondIsDone {
 		select {
 		case first, ok := <-firstConnected:
@@ -63,7 +65,7 @@ func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.C
 				log.Println("Second player just connected")
 			}
 			secondIsDone = true
-		case <-time.After(deadline.Sub(time.Now())):
+		case <-time.After(time.Until(deadline)):
 			close(canceled)
 			abandonConnecting(manager, msg.GameID, firstClient, secondClient, "player did not connect")
 			return errors.Wrap(err, "players took too long to connect")
@@ -78,8 +80,12 @@ func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.C
 
 func abandonConnecting(manager *client.WebSocketManager, gameID uuid.UUID, first *data.PlayerClient, second *data.PlayerClient, reason string) {
 	terminate := data.CraftTerminate(reason)
-	_ = first.Send(terminate)
-	_ = second.Send(terminate)
+	if first != nil {
+		_ = first.Send(terminate)
+	}
+	if second != nil {
+		_ = second.Send(terminate)
+	}
 
 	time.After(time.Second)
 	manager.CloseGame(gameID)
@@ -90,43 +96,50 @@ func createPlayer(manager *client.WebSocketManager, gameID, userID uuid.UUID) (*
 	return data.NewPlayerClient(wsClient), nil
 }
 
-func waitForOtherPlayer(pool *queue.Pool, manager *client.WebSocketManager, gameID uuid.UUID) (*data.PlayerClient, *connect.LobbyPlayer, error) {
+func waitForOtherPlayer(pool *queue.Pool, manager *client.WebSocketManager, gameID uuid.UUID, deadline time.Time) (*data.PlayerClient, *connect.LobbyPlayer, error) {
 	log.Println("Waiting for other player to join:", gameID)
 
 	consumer := pool.GetConsumer(connect.JoinLobbyQueue(gameID))
 	defer consumer.Close()
 
 	messages := consumer.Consume()
-	for msg := range messages {
-		var joinLobby connect.JoinLobbyMessage
-		err := json.Unmarshal(msg.Body, &joinLobby)
-		if err != nil {
-			log.Println("Join lobby attempt failed:", err)
-			continue
+	for {
+		select {
+		case <-time.After(time.Until(deadline)):
+			return nil, nil, errors.New("lobby ran out of time")
+		case msg, ok := <-messages:
+			if !ok {
+				return nil, nil, errors.New("lobby ran out of messages")
+			}
+
+			var joinLobby connect.JoinLobbyMessage
+			err := json.Unmarshal(msg.Body, &joinLobby)
+			if err != nil {
+				log.Println("Join lobby attempt failed:", err)
+				continue
+			}
+
+			log.Println("Joining player:", joinLobby.Player.Username)
+			c, err := createPlayer(manager, gameID, joinLobby.Player.UserID)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			publisher := pool.GetPublisher(connect.JoinedLobbyQueue(gameID))
+			err = publisher.PublishJSON(connect.JoinedLobbyMessage{
+				UserID:     joinLobby.Player.UserID,
+				ServerID:   config.Config.Server.ID,
+				ServerHost: config.Config.Server.Host,
+			})
+
+			publisher.Close()
+			if err != nil {
+				return nil, nil, err
+			}
+
+			return c, &joinLobby.Player, nil
 		}
-
-		log.Println("Joining player:", joinLobby.Player.Username)
-		c, err := createPlayer(manager, gameID, joinLobby.Player.UserID)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		publisher := pool.GetPublisher(connect.JoinedLobbyQueue(gameID))
-		err = publisher.PublishJSON(connect.JoinedLobbyMessage{
-			UserID:     joinLobby.Player.UserID,
-			ServerID:   config.Config.Server.ID,
-			ServerHost: config.Config.Server.Host,
-		})
-
-		publisher.Close()
-		if err != nil {
-			return nil, nil, err
-		}
-
-		return c, &joinLobby.Player, nil
 	}
-
-	return nil, nil, errors.New("lobby ran out of messages")
 }
 
 func waitForReady(client *data.PlayerClient, playerID uuid.UUID, connected chan<- error, canceled <-chan struct{}) {
