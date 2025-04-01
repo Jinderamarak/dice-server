@@ -84,7 +84,9 @@ func (client *WebSocketClient) reconnect(conn *websocket.Conn) {
 
 func (client *WebSocketClient) close() {
 	close(client.closing)
-	_ = client.conn.Close()
+	if client.conn != nil {
+		_ = client.conn.Close()
+	}
 }
 
 func (client *WebSocketClient) Send(msg *Message) error {
