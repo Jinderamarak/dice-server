@@ -1,4 +1,5 @@
 .idea
 .dockerignore
 .gitignore
-Dockerfile
+game/farkle/Dockerfile
+game-master/Dockerfile
