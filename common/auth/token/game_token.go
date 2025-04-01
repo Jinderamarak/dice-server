@@ -7,20 +7,18 @@ import (
 	"time"
 )
 
-const SuperSecret = "my-256-bit-secret"
-
 var (
 	ErrGameMissingUserID = errors.New("missing user ID")
 	ErrGameMissingGameID = errors.New("missing game ID")
 	ErrMissingServerID   = errors.New("missing server ID")
-	ErrMissingServerURL  = errors.New("missing server URL")
+	ErrMissingServerHost = errors.New("missing server host")
 )
 
 type GameToken struct {
-	UserID    uuid.UUID `json:"userId"`
-	GameID    uuid.UUID `json:"gameId"`
-	ServerID  uuid.UUID `json:"serverId"`
-	ServerURL string    `json:"serverUrl"`
+	UserID     uuid.UUID `json:"userId"`
+	GameID     uuid.UUID `json:"gameId"`
+	ServerID   uuid.UUID `json:"serverId"`
+	ServerHost string    `json:"serverHost"`
 	jwt.RegisteredClaims
 }
 
@@ -37,8 +35,8 @@ func (token *GameToken) Validate() error {
 		return ErrMissingServerID
 	}
 
-	if token.ServerURL == "" {
-		return ErrMissingServerURL
+	if token.ServerHost == "" {
+		return ErrMissingServerHost
 	}
 
 	return validateRegisteredClaims(&token.RegisteredClaims)
@@ -64,12 +62,12 @@ func ValidateGameToken(tokenString string, secret []byte) (*GameToken, error) {
 	return claims, nil
 }
 
-func NewGameToken(userID, gameID, serverID uuid.UUID, serverURL string, issuer string, issuedAt, expiresAt time.Time) *GameToken {
+func NewGameToken(userID, gameID, serverID uuid.UUID, serverHost string, issuer string, issuedAt, expiresAt time.Time) *GameToken {
 	return &GameToken{
-		UserID:    userID,
-		GameID:    gameID,
-		ServerID:  serverID,
-		ServerURL: serverURL,
+		UserID:     userID,
+		GameID:     gameID,
+		ServerID:   serverID,
+		ServerHost: serverHost,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    issuer,
 			IssuedAt:  jwt.NewNumericDate(issuedAt),

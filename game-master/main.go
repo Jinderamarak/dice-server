@@ -24,7 +24,11 @@ func main() {
 	}
 
 	var err error
-	if queuePool, err = queue.NewPool(16, 16, config.Config.RabbitURL); err != nil {
+	if queuePool, err = queue.NewPool(
+		config.Config.Rabbit.Connections,
+		config.Config.Rabbit.Channels,
+		config.Config.Rabbit.URL,
+	); err != nil {
 		log.Panicln("Queue pool creation failed:", err)
 	}
 	defer utility.CloseAndIgnore(queuePool)
@@ -138,8 +142,16 @@ func createFarkleHandler(ctx *gin.Context) {
 		return
 	}
 
-	gameToken := token.NewGameToken(playerID, gameID, accepted.ServerID, accepted.ServerURL, "gamemaster", time.Now(), time.Now().Add(time.Hour))
-	tokenString, err := gameToken.Sign([]byte(token.SuperSecret))
+	gameToken := token.NewGameToken(
+		playerID,
+		gameID,
+		accepted.ServerID,
+		accepted.ServerHost,
+		config.Config.Auth.Issuer,
+		time.Now(),
+		time.Now().Add(time.Hour),
+	)
+	tokenString, err := gameToken.Sign([]byte(config.Config.Auth.Secret))
 	if err != nil {
 		log.Println("Failed to sign token:", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sign token"})
@@ -180,8 +192,16 @@ func joinFarkleHandler(ctx *gin.Context) {
 		return
 	}
 
-	gameToken := token.NewGameToken(playerID, gameID, joined.ServerID, joined.ServerURL, "gamemaster", time.Now(), time.Now().Add(time.Hour))
-	tokenString, err := gameToken.Sign([]byte(token.SuperSecret))
+	gameToken := token.NewGameToken(
+		playerID,
+		gameID,
+		joined.ServerID,
+		joined.ServerHost,
+		config.Config.Auth.Issuer,
+		time.Now(),
+		time.Now().Add(time.Hour),
+	)
+	tokenString, err := gameToken.Sign([]byte(config.Config.Auth.Secret))
 	if err != nil {
 		log.Println("Failed to sign token:", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sign token"})

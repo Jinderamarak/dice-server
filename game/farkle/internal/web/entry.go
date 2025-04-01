@@ -27,7 +27,7 @@ func NewEntryPoint(manager *client.WebSocketManager) *EntryPoint {
 func (entry *EntryPoint) Run(fail chan<- error) {
 	server := gin.Default()
 	server.Use(corsMiddleware())
-	server.GET("/game/farkle/:auth", entry.entryHandler)
+	server.GET("/api/game/farkle/:auth", entry.entryHandler)
 
 	host := fmt.Sprintf(":%d", config.Config.Port)
 	res := server.Run(host)
@@ -52,13 +52,13 @@ func corsMiddleware() gin.HandlerFunc {
 
 func (entry *EntryPoint) entryHandler(ctx *gin.Context) {
 	auth := ctx.Param("auth")
-	gameToken, err := token.ValidateGameToken(auth, []byte(token.SuperSecret))
+	gameToken, err := token.ValidateGameToken(auth, []byte(config.Config.Auth.Secret))
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 		return
 	}
 
-	if gameToken.ServerID != config.Config.ServerID {
+	if gameToken.ServerID != config.Config.Server.ID {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid server ID"})
 		return
 	}

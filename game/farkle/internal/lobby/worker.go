@@ -49,9 +49,9 @@ func attemptLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *amqp.
 
 func startLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.CreateLobbyMessage) {
 	acceptation := connect.AcceptedLobbyMessage{
-		GameID:    msg.GameID,
-		ServerID:  config.Config.ServerID,
-		ServerURL: config.Config.ServerURL,
+		GameID:     msg.GameID,
+		ServerID:   config.Config.Server.ID,
+		ServerHost: config.Config.Server.Host,
 	}
 
 	publisher := pool.GetPublisher(connect.AcceptLobbyQueue(msg.GameID))

@@ -11,9 +11,9 @@ type CreateLobbyMessage struct {
 }
 
 type AcceptedLobbyMessage struct {
-	GameID    uuid.UUID `json:"gameId"`
-	ServerID  uuid.UUID `json:"serverId"`
-	ServerURL string    `json:"serverUrl"`
+	GameID     uuid.UUID `json:"gameId"`
+	ServerID   uuid.UUID `json:"serverId"`
+	ServerHost string    `json:"serverHost"`
 }
 
 type JoinLobbyMessage struct {
@@ -21,9 +21,9 @@ type JoinLobbyMessage struct {
 }
 
 type JoinedLobbyMessage struct {
-	UserID    uuid.UUID `json:"userId"`
-	ServerID  uuid.UUID `json:"serverId"`
-	ServerURL string    `json:"serverUrl"`
+	UserID     uuid.UUID `json:"userId"`
+	ServerID   uuid.UUID `json:"serverId"`
+	ServerHost string    `json:"serverHost"`
 }
 
 type LobbyPlayer struct {

@@ -113,9 +113,9 @@ func waitForOtherPlayer(pool *queue.Pool, manager *client.WebSocketManager, game
 
 		publisher := pool.GetPublisher(connect.JoinedLobbyQueue(gameID))
 		err = publisher.PublishJSON(connect.JoinedLobbyMessage{
-			UserID:    joinLobby.Player.UserID,
-			ServerID:  config.Config.ServerID,
-			ServerURL: config.Config.ServerURL,
+			UserID:     joinLobby.Player.UserID,
+			ServerID:   config.Config.Server.ID,
+			ServerHost: config.Config.Server.Host,
 		})
 
 		publisher.Close()

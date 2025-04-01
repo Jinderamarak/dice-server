@@ -81,16 +81,16 @@ async def play_game(id: int):
     payload = extract_jwt_payload(p2_token)
     p2_user_id = payload["userId"]
 
-    server_url = payload["serverUrl"]
-    p1_url = f"{server_url}/{p1_token}"
-    p2_url = f"{server_url}/{p2_token}"
+    server_host = payload["serverHost"]
+    p1_url = f"ws://{server_host}/api/game/farkle/{p1_token}"
+    p2_url = f"ws://{server_host}/api/game/farkle/{p2_token}"
     await asyncio.gather(
         websocket_listener(p1_url, p1_user_id),
         websocket_listener(p2_url, p2_user_id)
     )
 
-CONCURRENT_LIMIT = 200
-TOTAL_COUNT = 50000
+CONCURRENT_LIMIT = 1000
+TOTAL_COUNT = 5000
 
 async def run_games_concurrently(num_games):
     semaphore = asyncio.Semaphore(CONCURRENT_LIMIT)

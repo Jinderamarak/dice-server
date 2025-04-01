@@ -5,13 +5,23 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"log"
+	"strings"
 )
 
 type AppConfig struct {
-	Port      int
-	RabbitURL string
-	ServerID  uuid.UUID
-	ServerURL string
+	Port int
+	Auth struct {
+		Secret string
+	}
+	Rabbit struct {
+		URL         string
+		Connections uint32
+		Channels    uint32
+	}
+	Server struct {
+		ID   uuid.UUID
+		Host string
+	}
 }
 
 var Config AppConfig
@@ -21,12 +31,16 @@ func LoadConfig() error {
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("/app/config")
 	viper.SetEnvPrefix("FARKLE")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
 	viper.SetDefault("Port", 8080)
-	viper.SetDefault("RabbitURL", "amqp://guest:guest@localhost:5672")
-	viper.SetDefault("ServerID", uuid.New())
-	viper.SetDefault("ServerURL", "ws://localhost:8080/game/farkle")
+	viper.SetDefault("Auth.Secret", "my-secret")
+	viper.SetDefault("Rabbit.URL", "amqp://guest:guest@localhost:5672")
+	viper.SetDefault("Rabbit.Connections", 10)
+	viper.SetDefault("Rabbit.Channels", 10)
+	viper.SetDefault("Server.ID", uuid.New())
+	viper.SetDefault("Server.Host", "localhost:8080")
 
 	if err := viper.SafeWriteConfig(); err != nil {
 		log.Println("Failed to write default config file:", err)

@@ -15,9 +15,13 @@ func main() {
 		log.Panicln("Failed to load configuration:", err)
 	}
 
-	log.Println("Starting server with ID:", config.Config.ServerID)
+	log.Println("Starting server with ID:", config.Config.Server.ID)
 
-	pool, err := queue.NewPool(8, 16, config.Config.RabbitURL)
+	pool, err := queue.NewPool(
+		config.Config.Rabbit.Connections,
+		config.Config.Rabbit.Channels,
+		config.Config.Rabbit.URL,
+	)
 	if err != nil {
 		log.Panicln("Queue pool creation failed:", err)
 	}
