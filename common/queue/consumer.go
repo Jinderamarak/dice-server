@@ -38,7 +38,10 @@ func (cons *Consumer) listen(conn *Connection) error {
 		ch = conn.channel()
 	}
 
+	ch.lock()
 	que, err := cons.declaration.declareQueue(ch.inner)
+	ch.unlock()
+
 	if err != nil {
 		return errors.Wrap(err, "failed to declare a queue")
 	}
@@ -54,6 +57,7 @@ func (cons *Consumer) listen(conn *Connection) error {
 	}
 
 	consumerName := uuid.New().String()
+	ch.lock()
 	msgs, err := ch.inner.Consume(
 		que.Name,
 		consumerName,
@@ -63,15 +67,19 @@ func (cons *Consumer) listen(conn *Connection) error {
 		false,
 		nil,
 	)
+	ch.unlock()
+
 	if err != nil {
 		return errors.Wrap(err, "failed to consume messages")
 	}
 
-	defer func(ch *amqp.Channel, consumer string, noWait bool) {
-		if err := ch.Cancel(consumer, noWait); err != nil {
+	defer func() {
+		ch.lock()
+		if err := ch.inner.Cancel(consumerName, true); err != nil {
 			log.Println("Failed to cancel consumer:", err)
 		}
-	}(ch.inner, consumerName, true)
+		ch.unlock()
+	}()
 
 	for {
 		select {

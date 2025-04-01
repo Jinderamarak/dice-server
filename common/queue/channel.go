@@ -78,6 +78,14 @@ func (c *Channel) isReady() bool {
 	return c.inner != nil && !c.inner.IsClosed()
 }
 
+func (c *Channel) lock() {
+	c.mu.Lock()
+}
+
+func (c *Channel) unlock() {
+	c.mu.Unlock()
+}
+
 func (c *Channel) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()

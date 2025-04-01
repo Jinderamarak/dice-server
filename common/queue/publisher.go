@@ -32,7 +32,9 @@ func newPublisher(pool *Pool, queue Declaration) *Publisher {
 }
 
 func (pub *Publisher) keepPublishing(ch *Channel, lastMsg **rawMessage) error {
+	ch.lock()
 	que, err := pub.declaration.declareQueue(ch.inner)
+	ch.unlock()
 	if err != nil {
 		return errors.Wrap(err, "failed to declare a queue")
 	}
@@ -51,7 +53,8 @@ func (pub *Publisher) keepPublishing(ch *Channel, lastMsg **rawMessage) error {
 			}
 		}
 
-		if err := ch.inner.Publish(
+		ch.lock()
+		err = ch.inner.Publish(
 			"",
 			que.Name,
 			false,
@@ -61,7 +64,10 @@ func (pub *Publisher) keepPublishing(ch *Channel, lastMsg **rawMessage) error {
 				ContentType:  msg.contentType,
 				Body:         msg.body,
 			},
-		); err != nil {
+		)
+		ch.unlock()
+
+		if err != nil {
 			lastMsg = &msg
 			return errors.Wrap(err, "failed to publish message")
 		}
