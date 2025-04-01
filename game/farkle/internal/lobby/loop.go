@@ -70,8 +70,8 @@ func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.C
 		}
 	}
 
-	state := createGameState(&firstPlayer, secondPlayer, msg)
-	logic.PlayFarkle(manager, state, []*data.PlayerClient{firstClient, secondClient})
+	game := logic.NewFarkleGame(manager, firstClient, secondClient, &firstPlayer, secondPlayer, msg)
+	game.Play()
 
 	return nil
 }
@@ -127,36 +127,6 @@ func waitForOtherPlayer(pool *queue.Pool, manager *client.WebSocketManager, game
 	}
 
 	return nil, nil, errors.New("lobby ran out of messages")
-}
-
-func createGameState(first, second *connect.LobbyPlayer, create *connect.CreateLobbyMessage) *data.GameState {
-	firstDice := make([]*data.Dice, len(first.DiceSet))
-	for i, d := range first.DiceSet {
-		firstDice[i] = data.NewDice(d.ID)
-	}
-
-	secondDice := make([]*data.Dice, len(second.DiceSet))
-	for i, d := range second.DiceSet {
-		secondDice[i] = data.NewDice(d.ID)
-	}
-
-	return &data.GameState{
-		ID:            create.GameID,
-		Target:        create.Target,
-		CurrentPlayer: first.UserID,
-		Players: []*data.PlayerState{
-			{
-				Info:   *first,
-				Scores: data.PlayerScores{},
-				Dice:   firstDice,
-			},
-			{
-				Info:   *second,
-				Scores: data.PlayerScores{},
-				Dice:   secondDice,
-			},
-		},
-	}
 }
 
 func waitForReady(client *data.PlayerClient, playerID uuid.UUID, connected chan<- error, canceled <-chan struct{}) {
