@@ -19,8 +19,9 @@ var (
 )
 
 type WebSocketClient struct {
-	conn    *websocket.Conn
-	closing chan struct{}
+	conn        *websocket.Conn
+	reconnected chan struct{}
+	closing     chan struct{}
 
 	incoming chan *Message
 	outgoing chan *Message
@@ -28,10 +29,11 @@ type WebSocketClient struct {
 
 func NewWebSocketClient() *WebSocketClient {
 	return &WebSocketClient{
-		conn:     nil,
-		closing:  make(chan struct{}),
-		incoming: make(chan *Message, messageBufferLimit),
-		outgoing: make(chan *Message, messageBufferLimit),
+		conn:        nil,
+		reconnected: make(chan struct{}),
+		closing:     make(chan struct{}),
+		incoming:    make(chan *Message, messageBufferLimit),
+		outgoing:    make(chan *Message, messageBufferLimit),
 	}
 }
 
@@ -66,6 +68,8 @@ func (client *WebSocketClient) writingLoop(conn *websocket.Conn) {
 				log.Println("Failed to write message:", err)
 				return
 			}
+		case <-client.reconnected:
+			return
 		case <-client.closing:
 			return
 		}
@@ -77,13 +81,24 @@ func (client *WebSocketClient) reconnect(conn *websocket.Conn) {
 		_ = client.conn.Close()
 	}
 
+	select {
+	case <-client.reconnected:
+	default:
+		close(client.reconnected)
+	}
+	client.reconnected = make(chan struct{})
+
 	client.conn = conn
 	go client.readingLoop(conn)
 	go client.writingLoop(conn)
 }
 
 func (client *WebSocketClient) close() {
-	close(client.closing)
+	select {
+	case <-client.closing:
+	default:
+		close(client.closing)
+	}
 	if client.conn != nil {
 		_ = client.conn.Close()
 	}
