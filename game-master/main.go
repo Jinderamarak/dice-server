@@ -35,8 +35,8 @@ func main() {
 
 	server := gin.Default()
 	server.Use(corsMiddleware())
-	server.POST("/api/farkle", createFarkleHandler)
-	server.POST("/api/farkle/:gameId/join", joinFarkleHandler)
+	server.POST("/api/game/farkle", createFarkleHandler)
+	server.POST("/api/game/farkle/:gameId/join", joinFarkleHandler)
 
 	host := fmt.Sprintf(":%d", config.Config.Port)
 	if err = server.Run(host); err != nil {
