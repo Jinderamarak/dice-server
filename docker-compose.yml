@@ -1,0 +1,37 @@
+services:
+  dice-master:
+    image: ghcr.io/jinderamarak/dice-master:latest
+    build:
+      context: .
+      dockerfile: ./game-master/Dockerfile
+    container_name: dice-master
+    restart: unless-stopped
+    depends_on:
+      dice-rabbit:
+        condition: service_started
+    ports:
+      - "9000:8080"
+    environment:
+      DICE_AUTH_SECRET: "my-auth-secret"
+      DICE_AUTH_ISSUER: "dev-game-master"
+      DICE_RABBIT_URL: "amqp://guest:guest@dice-rabbit:5672"
+  dice-farkle:
+    image: ghcr.io/jinderamarak/dice-farkle:latest
+    build:
+      context: .
+      dockerfile: ./game/farkle/Dockerfile
+    container_name: dice-farkle
+    restart: unless-stopped
+    depends_on:
+      dice-rabbit:
+        condition: service_started
+    ports:
+      - "9001:8080"
+    environment:
+      FARKLE_AUTH_SECRET: "my-auth-secret"
+      FARKLE_RABBIT_URL: "amqp://guest:guest@dice-rabbit:5672"
+      FARKLE_SERVER_HOST: "localhost:9001"
+  dice-rabbit:
+    image: rabbitmq:latest
+    container_name: dice-rabbit
+    restart: unless-stopped
