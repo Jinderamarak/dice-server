@@ -114,16 +114,37 @@ func joinGameFarkle(gameID uuid.UUID, data connect.JoinLobbyMessage) (*connect.J
 	return nil, errors.New("failed to receive joined lobby message")
 }
 
+type CreateRequestBody struct {
+	Username string `json:"username"`
+	Target   int    `json:"target"`
+}
+
 func createFarkleHandler(ctx *gin.Context) {
 	gameID := uuid.New()
 	playerID := uuid.New()
 
+	var requestBody CreateRequestBody
+	if err := ctx.ShouldBindJSON(&requestBody); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	if requestBody.Target < 1000 || requestBody.Target > 100_000 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Target must be between 1000 and 100000"})
+		return
+	}
+
+	if len(requestBody.Username) < 3 || len(requestBody.Username) > 20 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Username must be between 3 and 20 characters"})
+		return
+	}
+
 	createLobby := connect.CreateLobbyMessage{
 		GameID: gameID,
-		Target: 3000,
+		Target: requestBody.Target,
 		Player: connect.LobbyPlayer{
 			UserID:   playerID,
-			Username: "Player 1",
+			Username: requestBody.Username,
 			DiceSet: []connect.LobbyDice{
 				{uuid.New()},
 				{uuid.New()},
@@ -161,6 +182,10 @@ func createFarkleHandler(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, gin.H{"token": tokenString})
 }
 
+type JoinRequestBody struct {
+	Username string `json:"username"`
+}
+
 func joinFarkleHandler(ctx *gin.Context) {
 	gameIDStr := ctx.Param("gameId")
 	gameID, err := uuid.Parse(gameIDStr)
@@ -169,11 +194,22 @@ func joinFarkleHandler(ctx *gin.Context) {
 		return
 	}
 
+	var requestBody JoinRequestBody
+	if err := ctx.ShouldBindJSON(&requestBody); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	if len(requestBody.Username) < 3 || len(requestBody.Username) > 20 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Username must be between 3 and 20 characters"})
+		return
+	}
+
 	playerID := uuid.New()
 	joinLobby := connect.JoinLobbyMessage{
 		Player: connect.LobbyPlayer{
 			UserID:   playerID,
-			Username: "Player 2",
+			Username: requestBody.Username,
 			DiceSet: []connect.LobbyDice{
 				{uuid.New()},
 				{uuid.New()},
