@@ -116,3 +116,14 @@ func (c *PlayerClient) SetTurn(isMyTurn bool) {
 func (c *PlayerClient) SetGameStateHandler(handler func() *GameState) {
 	c.gameStateHandler = &handler
 }
+
+func (c *PlayerClient) DrainMessages() {
+	for {
+		select {
+		case <-c.incoming:
+			// Drain the channel
+		default:
+			return
+		}
+	}
+}

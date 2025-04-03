@@ -72,6 +72,9 @@ func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.C
 		}
 	}
 
+	firstClient.DrainMessages()
+	secondClient.DrainMessages()
+
 	game := logic.NewFarkleGame(manager, firstClient, secondClient, &firstPlayer, secondPlayer, msg)
 	game.Play()
 
