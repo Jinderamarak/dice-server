@@ -93,7 +93,9 @@ func abandonConnecting(manager *client.WebSocketManager, gameID uuid.UUID, first
 
 func createPlayer(manager *client.WebSocketManager, gameID, userID uuid.UUID) (*data.PlayerClient, error) {
 	wsClient := manager.GetClient(gameID, userID)
-	return data.NewPlayerClient(wsClient), nil
+	player := data.NewPlayerClient(wsClient)
+	player.SetTurn(true)
+	return player, nil
 }
 
 func waitForOtherPlayer(pool *queue.Pool, manager *client.WebSocketManager, gameID uuid.UUID, deadline time.Time) (*data.PlayerClient, *connect.LobbyPlayer, error) {
@@ -143,7 +145,6 @@ func waitForOtherPlayer(pool *queue.Pool, manager *client.WebSocketManager, game
 }
 
 func waitForReady(client *data.PlayerClient, playerID uuid.UUID, connected chan<- error, canceled <-chan struct{}) {
-	client.SetTurn(true)
 	defer client.SetTurn(false)
 
 	for {
