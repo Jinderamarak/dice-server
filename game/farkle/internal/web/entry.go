@@ -69,5 +69,9 @@ func (entry *EntryPoint) entryHandler(ctx *gin.Context) {
 		return
 	}
 
-	entry.manager.UpgradeClient(gameToken.GameID, gameToken.UserID, conn)
+	_, ok := entry.manager.UpgradeClient(gameToken.GameID, gameToken.UserID, conn)
+	if !ok {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "Game not found"})
+		return
+	}
 }

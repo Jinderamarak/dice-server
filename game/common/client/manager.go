@@ -45,13 +45,21 @@ func NewWebSocketManager() *WebSocketManager {
 	}
 }
 
-func (manager *WebSocketManager) getOrCreateGame(gameID uuid.UUID) *gameClients {
+func (manager *WebSocketManager) tryGetGame(gameID uuid.UUID) (*gameClients, bool) {
 	manager.gamesMu.Lock()
 	defer manager.gamesMu.Unlock()
 
-	if game, ok := manager.games[gameID]; ok {
+	game, ok := manager.games[gameID]
+	return game, ok
+}
+
+func (manager *WebSocketManager) getOrCreateGame(gameID uuid.UUID) *gameClients {
+	if game, ok := manager.tryGetGame(gameID); ok {
 		return game
 	}
+
+	manager.gamesMu.Lock()
+	defer manager.gamesMu.Unlock()
 
 	game := &gameClients{
 		mu:      sync.Mutex{},
@@ -68,13 +76,16 @@ func (manager *WebSocketManager) GetClient(gameID uuid.UUID, userID uuid.UUID) *
 	return client
 }
 
-func (manager *WebSocketManager) UpgradeClient(gameID uuid.UUID, userID uuid.UUID, conn *websocket.Conn) *WebSocketClient {
-	game := manager.getOrCreateGame(gameID)
-	client := game.getOrCreateClient(userID)
+func (manager *WebSocketManager) UpgradeClient(gameID uuid.UUID, userID uuid.UUID, conn *websocket.Conn) (*WebSocketClient, bool) {
+	game, ok := manager.tryGetGame(gameID)
+	if !ok {
+		return nil, false
+	}
 
+	client := game.getOrCreateClient(userID)
 	client.reconnect(conn)
 
-	return client
+	return client, true
 }
 
 func (manager *WebSocketManager) CloseGame(gameID uuid.UUID) {
