@@ -8,11 +8,7 @@ import (
 )
 
 type AppConfig struct {
-	Port int
-	Auth struct {
-		Secret string
-		Issuer string
-	}
+	Port   int
 	Rabbit struct {
 		URL         string
 		Connections uint32
@@ -31,8 +27,6 @@ func LoadConfig() error {
 	viper.AutomaticEnv()
 
 	viper.SetDefault("Port", 8080)
-	viper.SetDefault("Auth.Secret", "my-secret")
-	viper.SetDefault("Auth.Issuer", "dice-game-master")
 	viper.SetDefault("Rabbit.URL", "amqp://guest:guest@localhost:5672")
 	viper.SetDefault("Rabbit.Connections", 10)
 	viper.SetDefault("Rabbit.Channels", 10)

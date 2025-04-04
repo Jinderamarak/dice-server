@@ -14,6 +14,8 @@ var (
 	ErrMissingServerHost = errors.New("missing server host")
 )
 
+const GameTokenLifetime = time.Hour
+
 type GameToken struct {
 	UserID     uuid.UUID `json:"userId"`
 	GameID     uuid.UUID `json:"gameId"`
@@ -62,7 +64,7 @@ func ValidateGameToken(tokenString string, secret []byte) (*GameToken, error) {
 	return claims, nil
 }
 
-func NewGameToken(userID, gameID, serverID uuid.UUID, serverHost string, issuer string, issuedAt, expiresAt time.Time) *GameToken {
+func NewGameToken(userID, gameID, serverID uuid.UUID, serverHost string, issuer string, issuedAt time.Time) *GameToken {
 	return &GameToken{
 		UserID:     userID,
 		GameID:     gameID,
@@ -71,7 +73,7 @@ func NewGameToken(userID, gameID, serverID uuid.UUID, serverHost string, issuer 
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    issuer,
 			IssuedAt:  jwt.NewNumericDate(issuedAt),
-			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			ExpiresAt: jwt.NewNumericDate(issuedAt.Add(GameTokenLifetime)),
 		},
 	}
 }

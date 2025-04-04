@@ -1,7 +1,6 @@
 package main
 
 import (
-	"dice-server/common/auth/token"
 	"dice-server/common/queue"
 	"dice-server/common/utility"
 	"dice-server/game-master/internal/config"
@@ -13,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"log"
 	"net/http"
-	"time"
 )
 
 var queuePool *queue.Pool
@@ -60,7 +58,7 @@ func corsMiddleware() gin.HandlerFunc {
 	}
 }
 
-func createGameFarkle(data connect.CreateLobbyMessage) (*connect.AcceptedLobbyMessage, error) {
+func createGameFarkle(data connect.CreateFarkleRequest) (*connect.CreateFarkleResponse, error) {
 	publisher := queuePool.GetPublisher(connect.CreateLobbyQueue)
 	defer publisher.Close()
 
@@ -73,7 +71,7 @@ func createGameFarkle(data connect.CreateLobbyMessage) (*connect.AcceptedLobbyMe
 
 	messages := listener.Consume()
 	for msg := range messages {
-		var accept connect.AcceptedLobbyMessage
+		var accept connect.CreateFarkleResponse
 		if err := json.Unmarshal(msg.Body, &accept); err != nil {
 			log.Println("Failed to unmarshal accepted lobby message:", err)
 			continue
@@ -87,7 +85,7 @@ func createGameFarkle(data connect.CreateLobbyMessage) (*connect.AcceptedLobbyMe
 	return nil, errors.New("failed to receive accepted lobby message")
 }
 
-func joinGameFarkle(gameID uuid.UUID, data connect.JoinLobbyMessage) (*connect.JoinedLobbyMessage, error) {
+func joinGameFarkle(gameID uuid.UUID, data connect.JoinFarkleRequest) (*connect.JoinFarkleResponse, error) {
 	publisher := queuePool.GetPublisher(connect.JoinLobbyQueue(gameID))
 	defer publisher.Close()
 
@@ -100,16 +98,13 @@ func joinGameFarkle(gameID uuid.UUID, data connect.JoinLobbyMessage) (*connect.J
 
 	messages := listener.Consume()
 	for msg := range messages {
-		var joined connect.JoinedLobbyMessage
+		var joined connect.JoinFarkleResponse
 		if err := json.Unmarshal(msg.Body, &joined); err != nil {
 			log.Println("Failed to unmarshal joined lobby message:", err)
 			continue
 		}
 
-		if joined.UserID == data.Player.UserID {
-			log.Println("Player joined successfully:", joined.UserID)
-			return &joined, nil
-		}
+		return &joined, nil
 	}
 	return nil, errors.New("failed to receive joined lobby message")
 }
@@ -139,7 +134,7 @@ func createFarkleHandler(ctx *gin.Context) {
 		return
 	}
 
-	createLobby := connect.CreateLobbyMessage{
+	createLobby := connect.CreateFarkleRequest{
 		GameID: gameID,
 		Target: requestBody.Target,
 		Player: connect.LobbyPlayer{
@@ -163,23 +158,13 @@ func createFarkleHandler(ctx *gin.Context) {
 		return
 	}
 
-	gameToken := token.NewGameToken(
-		playerID,
-		gameID,
-		accepted.ServerID,
-		accepted.ServerHost,
-		config.Config.Auth.Issuer,
-		time.Now(),
-		time.Now().Add(time.Hour),
-	)
-	tokenString, err := gameToken.Sign([]byte(config.Config.Auth.Secret))
-	if err != nil {
-		log.Println("Failed to sign token:", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sign token"})
-		return
-	}
-
-	ctx.JSON(http.StatusCreated, gin.H{"token": tokenString})
+	ctx.JSON(http.StatusCreated, gin.H{
+		"userId":     playerID,
+		"gameId":     accepted.GameID,
+		"serverId":   accepted.ServerID,
+		"serverHost": accepted.ServerHost,
+		"token":      accepted.Auth,
+	})
 }
 
 type JoinRequestBody struct {
@@ -206,7 +191,7 @@ func joinFarkleHandler(ctx *gin.Context) {
 	}
 
 	playerID := uuid.New()
-	joinLobby := connect.JoinLobbyMessage{
+	joinLobby := connect.JoinFarkleRequest{
 		Player: connect.LobbyPlayer{
 			UserID:   playerID,
 			Username: requestBody.Username,
@@ -228,21 +213,11 @@ func joinFarkleHandler(ctx *gin.Context) {
 		return
 	}
 
-	gameToken := token.NewGameToken(
-		playerID,
-		gameID,
-		joined.ServerID,
-		joined.ServerHost,
-		config.Config.Auth.Issuer,
-		time.Now(),
-		time.Now().Add(time.Hour),
-	)
-	tokenString, err := gameToken.Sign([]byte(config.Config.Auth.Secret))
-	if err != nil {
-		log.Println("Failed to sign token:", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sign token"})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"token": tokenString})
+	ctx.JSON(http.StatusOK, gin.H{
+		"userId":     playerID,
+		"gameId":     joined.GameID,
+		"serverId":   joined.ServerID,
+		"serverHost": joined.ServerHost,
+		"token":      joined.Auth,
+	})
 }

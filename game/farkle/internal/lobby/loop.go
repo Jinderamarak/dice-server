@@ -1,6 +1,7 @@
 package lobby
 
 import (
+	"dice-server/common/auth/token"
 	"dice-server/common/queue"
 	"dice-server/game/common/client"
 	"dice-server/game/farkle/connect"
@@ -17,7 +18,7 @@ import (
 const playerJoinTimeout = time.Minute * 5
 const playersReadyTimeout = time.Minute
 
-func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.CreateLobbyMessage) error {
+func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.CreateFarkleRequest) error {
 	firstPlayer := msg.Player
 	firstClient, err := createPlayer(manager, msg.GameID, firstPlayer.UserID)
 	if err != nil {
@@ -117,7 +118,7 @@ func waitForOtherPlayer(pool *queue.Pool, manager *client.WebSocketManager, game
 				return nil, nil, errors.New("lobby ran out of messages")
 			}
 
-			var joinLobby connect.JoinLobbyMessage
+			var joinLobby connect.JoinFarkleRequest
 			err := json.Unmarshal(msg.Body, &joinLobby)
 			if err != nil {
 				log.Println("Join lobby attempt failed:", err)
@@ -130,11 +131,18 @@ func waitForOtherPlayer(pool *queue.Pool, manager *client.WebSocketManager, game
 				return nil, nil, err
 			}
 
+			auth := token.NewGameToken(joinLobby.Player.UserID, gameID, config.Config.Server.ID, config.Config.Server.Host, config.Config.Auth.Issuer, time.Now())
+			authToken, err := auth.Sign([]byte(config.Config.Auth.Secret))
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "failed to sign auth token")
+			}
+
 			publisher := pool.GetPublisher(connect.JoinedLobbyQueue(gameID))
-			err = publisher.PublishJSON(connect.JoinedLobbyMessage{
-				UserID:     joinLobby.Player.UserID,
+			err = publisher.PublishJSON(connect.JoinFarkleResponse{
+				GameID:     gameID,
 				ServerID:   config.Config.Server.ID,
 				ServerHost: config.Config.Server.Host,
+				Auth:       authToken,
 			})
 
 			publisher.Close()

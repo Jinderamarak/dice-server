@@ -4,26 +4,28 @@ import (
 	"github.com/google/uuid"
 )
 
-type CreateLobbyMessage struct {
+type CreateFarkleRequest struct {
 	GameID uuid.UUID   `json:"gameId"`
 	Target int         `json:"score"`
 	Player LobbyPlayer `json:"player"`
 }
 
-type AcceptedLobbyMessage struct {
+type CreateFarkleResponse struct {
 	GameID     uuid.UUID `json:"gameId"`
 	ServerID   uuid.UUID `json:"serverId"`
 	ServerHost string    `json:"serverHost"`
+	Auth       string    `json:"auth"`
 }
 
-type JoinLobbyMessage struct {
+type JoinFarkleRequest struct {
 	Player LobbyPlayer `json:"player"`
 }
 
-type JoinedLobbyMessage struct {
-	UserID     uuid.UUID `json:"userId"`
+type JoinFarkleResponse struct {
+	GameID     uuid.UUID `json:"gameId"`
 	ServerID   uuid.UUID `json:"serverId"`
 	ServerHost string    `json:"serverHost"`
+	Auth       string    `json:"auth"`
 }
 
 type LobbyPlayer struct {

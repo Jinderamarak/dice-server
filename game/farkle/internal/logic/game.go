@@ -41,7 +41,7 @@ func NewFarkleGame(
 	manager *client.WebSocketManager,
 	firstClient, secondClient *data.PlayerClient,
 	firstPlayer, secondPlayer *connect.LobbyPlayer,
-	create *connect.CreateLobbyMessage,
+	create *connect.CreateFarkleRequest,
 ) *FarkleGame {
 	firstDice := make([]*data.Dice, len(firstPlayer.DiceSet))
 	for i, d := range firstPlayer.DiceSet {
