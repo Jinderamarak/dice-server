@@ -12,8 +12,6 @@ import (
 )
 
 const (
-	beginSleep     = time.Second * 3
-	turnBeginSleep = time.Second
 	pickTimeout    = time.Minute
 	terminateSleep = time.Second * 10
 )
@@ -89,7 +87,6 @@ func (game *FarkleGame) Play() {
 	}
 
 	game.broadcast(data.CraftGameBegin(game.state))
-	time.Sleep(beginSleep)
 
 	err := game.gameLoop()
 	if err != nil {
@@ -152,7 +149,6 @@ func (game *FarkleGame) turnLoop(playerState *data.PlayerState, playerClient *da
 	defer playerClient.SetTurn(false)
 
 	game.broadcast(data.CraftTurnBegin(playerState.Info.UserID))
-	time.Sleep(turnBeginSleep)
 
 	game.stateMu.Lock()
 	playerState.Scores.Turn = 0
