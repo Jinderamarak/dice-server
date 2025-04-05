@@ -6,6 +6,7 @@ import (
 	"dice-server/game/farkle/internal/data"
 	"errors"
 	"log"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -58,7 +59,7 @@ func NewFarkleGame(
 		state: &data.GameState{
 			ID:            create.GameID,
 			Target:        create.Target,
-			PickTime:      pickTime,
+			PickSeconds:   uint(math.Round(pickTime.Seconds())),
 			CurrentPlayer: firstPlayer.UserID,
 			Players: []*data.PlayerState{
 				{
@@ -177,7 +178,12 @@ func (game *FarkleGame) turnLoop(playerState *data.PlayerState, playerClient *da
 			return nil
 		}
 
-		rollAgain, err := game.diceSelection(playerState, playerClient, time.Now().Add(game.state.PickTime))
+		rollAgain, err := game.diceSelection(
+			playerState,
+			playerClient,
+			time.Now().Add(time.Duration(game.state.PickSeconds)*time.Second),
+		)
+
 		if err != nil {
 			if errors.Is(err, client.ErrRecvTimeout) {
 				game.stateMu.Lock()

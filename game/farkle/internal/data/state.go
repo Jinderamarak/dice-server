@@ -3,13 +3,12 @@ package data
 import (
 	"dice-server/game/farkle/connect"
 	"github.com/google/uuid"
-	"time"
 )
 
 type GameState struct {
 	ID            uuid.UUID      `json:"id"`
 	Target        int            `json:"target"`
-	PickTime      time.Duration  `json:"pickTime"`
+	PickSeconds   uint           `json:"pickSeconds"`
 	CurrentPlayer uuid.UUID      `json:"currentPlayer"`
 	Players       []*PlayerState `json:"players"`
 }
