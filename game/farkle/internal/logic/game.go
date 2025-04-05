@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	pickTimeout    = time.Minute
+	pickTime       = time.Minute
 	terminateSleep = time.Second * 10
 )
 
@@ -58,6 +58,7 @@ func NewFarkleGame(
 		state: &data.GameState{
 			ID:            create.GameID,
 			Target:        create.Target,
+			PickTime:      pickTime,
 			CurrentPlayer: firstPlayer.UserID,
 			Players: []*data.PlayerState{
 				{
@@ -176,7 +177,7 @@ func (game *FarkleGame) turnLoop(playerState *data.PlayerState, playerClient *da
 			return nil
 		}
 
-		rollAgain, err := game.diceSelection(playerState, playerClient, time.Now().Add(pickTimeout))
+		rollAgain, err := game.diceSelection(playerState, playerClient, time.Now().Add(game.state.PickTime))
 		if err != nil {
 			if errors.Is(err, client.ErrRecvTimeout) {
 				game.stateMu.Lock()
