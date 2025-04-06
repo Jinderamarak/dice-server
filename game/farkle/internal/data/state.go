@@ -9,6 +9,7 @@ type GameState struct {
 	ID            uuid.UUID      `json:"id"`
 	Target        int            `json:"target"`
 	PickSeconds   uint           `json:"pickSeconds"`
+	PickDeadline  int64          `json:"pickDeadline"`
 	CurrentPlayer uuid.UUID      `json:"currentPlayer"`
 	Players       []*PlayerState `json:"players"`
 }

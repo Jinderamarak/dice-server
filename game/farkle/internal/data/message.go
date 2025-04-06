@@ -43,8 +43,9 @@ type VariantTurnBegin struct {
 }
 
 type VariantDiceRoll struct {
-	Dice   []*Dice `json:"dice"`
-	Busted bool    `json:"busted"`
+	Dice     []*Dice `json:"dice"`
+	Busted   bool    `json:"busted"`
+	Deadline int64   `json:"deadline"`
 }
 
 type VariantDiceTouch struct {
@@ -107,8 +108,8 @@ func CraftTurnBegin(playerID uuid.UUID) *client.Message {
 	return client.MustCraftMessage(VarTurnBegin, VariantTurnBegin{PlayerID: playerID})
 }
 
-func CraftDiceRoll(dice []*Dice, busted bool) *client.Message {
-	return client.MustCraftMessage(VarDiceRoll, VariantDiceRoll{Dice: dice, Busted: busted})
+func CraftDiceRoll(dice []*Dice, busted bool, deadline int64) *client.Message {
+	return client.MustCraftMessage(VarDiceRoll, VariantDiceRoll{Dice: dice, Busted: busted, Deadline: deadline})
 }
 
 func CraftDiceTouch(diceID uuid.UUID, selected bool) *client.Message {

@@ -60,6 +60,7 @@ func NewFarkleGame(
 			ID:            create.GameID,
 			Target:        create.Target,
 			PickSeconds:   uint(math.Round(pickTime.Seconds())),
+			PickDeadline:  time.Now().Unix(),
 			CurrentPlayer: firstPlayer.UserID,
 			Players: []*data.PlayerState{
 				{
@@ -161,10 +162,11 @@ func (game *FarkleGame) turnLoop(playerState *data.PlayerState, playerClient *da
 	for {
 		game.stateMu.Lock()
 		rollDice(playerState.Dice)
+		game.state.PickDeadline = time.Now().Add(time.Duration(game.state.PickSeconds) * time.Second).Unix()
 		game.stateMu.Unlock()
 
 		busted := hasBusted(countValues(playerState.Dice, true))
-		game.broadcast(data.CraftDiceRoll(playerState.Dice, busted))
+		game.broadcast(data.CraftDiceRoll(playerState.Dice, busted, game.state.PickDeadline))
 
 		if busted {
 			log.Println("Player busted")
@@ -178,12 +180,7 @@ func (game *FarkleGame) turnLoop(playerState *data.PlayerState, playerClient *da
 			return nil
 		}
 
-		rollAgain, err := game.diceSelection(
-			playerState,
-			playerClient,
-			time.Now().Add(time.Duration(game.state.PickSeconds)*time.Second),
-		)
-
+		rollAgain, err := game.diceSelection(playerState, playerClient)
 		if err != nil {
 			if errors.Is(err, client.ErrRecvTimeout) {
 				game.stateMu.Lock()
@@ -216,8 +213,9 @@ func (game *FarkleGame) turnLoop(playerState *data.PlayerState, playerClient *da
 	}
 }
 
-func (game *FarkleGame) diceSelection(playerState *data.PlayerState, playerClient *data.PlayerClient, deadline time.Time) (bool, error) {
+func (game *FarkleGame) diceSelection(playerState *data.PlayerState, playerClient *data.PlayerClient) (bool, error) {
 	hasExtraDice := false
+	deadline := time.Unix(game.state.PickDeadline, 0)
 	for {
 		log.Println("Waiting for next step")
 		step, err := playerClient.Receive(deadline.Sub(time.Now()))
