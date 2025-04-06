@@ -2,29 +2,39 @@ package data
 
 import (
 	"dice-server/game/common/client"
+	"dice-server/game/farkle/connect"
 	"github.com/google/uuid"
 )
 
 const (
-	VarPlayerReady = "farkle-player-ready"
-	VarGameBegin   = "farkle-game-begin"
-	VarPleaseSync  = "farkle-please-sync"
-	VarSyncState   = "farkle-sync-state"
-	VarTurnBegin   = "farkle-turn-begin"
-	VarDiceRoll    = "farkle-dice-roll"
-	VarDiceTouch   = "farkle-dice-touch"
-	VarDiceTouched = "farkle-dice-touched"
-	VarUpdateScore = "farkle-update-score"
-	VarTurnTimeout = "farkle-turn-timeout"
-	VarScoreRoll   = "farkle-score-roll"
-	VarEndTurn     = "farkle-end-turn"
-	VarGameEnd     = "farkle-game-end"
-	VarError       = "farkle-error"
-	VarTerminate   = "farkle-terminate"
+	VarPleaseReady   = "farkle-please-ready"
+	VarPlayerReady   = "farkle-player-ready"
+	VarPlayerJoining = "farkle-player-joining"
+	VarGameBegin     = "farkle-game-begin"
+	VarPleaseSync    = "farkle-please-sync"
+	VarSyncState     = "farkle-sync-state"
+	VarTurnBegin     = "farkle-turn-begin"
+	VarDiceRoll      = "farkle-dice-roll"
+	VarDiceTouch     = "farkle-dice-touch"
+	VarDiceTouched   = "farkle-dice-touched"
+	VarUpdateScore   = "farkle-update-score"
+	VarTurnTimeout   = "farkle-turn-timeout"
+	VarScoreRoll     = "farkle-score-roll"
+	VarEndTurn       = "farkle-end-turn"
+	VarGameEnd       = "farkle-game-end"
+	VarError         = "farkle-error"
+	VarTerminate     = "farkle-terminate"
 )
+
+type VariantPleaseReady struct {
+}
 
 type VariantPlayerReady struct {
 	PlayerID uuid.UUID `json:"playerId"`
+}
+
+type VariantPlayerJoining struct {
+	Info *connect.LobbyPlayer `json:"info"`
 }
 
 type VariantGameBegin struct {
@@ -88,8 +98,16 @@ type VariantTerminate struct {
 	Reason string `json:"reason"`
 }
 
+func CraftPleaseReady() *client.Message {
+	return client.MustCraftMessage(VarPleaseReady, VariantPleaseReady{})
+}
+
 func CraftPlayerReady(playerID uuid.UUID) *client.Message {
 	return client.MustCraftMessage(VarPlayerReady, VariantPlayerReady{PlayerID: playerID})
+}
+
+func CraftPlayerJoining(info *connect.LobbyPlayer) *client.Message {
+	return client.MustCraftMessage(VarPlayerJoining, VariantPlayerJoining{Info: info})
 }
 
 func CraftGameBegin(state *GameState) *client.Message {

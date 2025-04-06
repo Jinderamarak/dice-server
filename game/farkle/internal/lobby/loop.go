@@ -15,8 +15,11 @@ import (
 	"time"
 )
 
-const playerJoinTimeout = time.Minute * 5
-const playersReadyTimeout = time.Minute
+const (
+	playerJoinTimeout    = time.Minute * 5
+	playersReadyTimeout  = time.Minute
+	playerPleaseInterval = time.Second * 5
+)
 
 func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.CreateFarkleRequest) error {
 	firstPlayer := msg.Player
@@ -29,6 +32,11 @@ func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.C
 	if err != nil {
 		abandonConnecting(manager, msg.GameID, firstClient, nil, "failed to wait for other player")
 		return errors.Wrap(err, "failed to wait for other player")
+	}
+
+	if err := firstClient.Send(data.CraftPlayerJoining(secondPlayer)); err != nil {
+		abandonConnecting(manager, msg.GameID, firstClient, secondClient, "failed to send player joining")
+		return errors.Wrap(err, "failed to send player joining")
 	}
 
 	firstConnected := make(chan error)
@@ -159,6 +167,7 @@ func waitForReady(client *data.PlayerClient, playerID uuid.UUID, connected chan<
 	defer client.SetTurn(false)
 
 	for {
+		_ = client.Send(data.CraftPleaseReady())
 		select {
 		case msg := <-client.Receiving():
 			if msg.Variant == data.VarPlayerReady {
@@ -174,6 +183,8 @@ func waitForReady(client *data.PlayerClient, playerID uuid.UUID, connected chan<
 					return
 				}
 			}
+		case <-time.After(playerPleaseInterval):
+			continue
 		case <-client.Closing():
 			connected <- errors.New("client closed")
 			return
