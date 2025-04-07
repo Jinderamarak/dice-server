@@ -257,18 +257,6 @@ func (game *FarkleGame) diceSelection(playerState *data.PlayerState, playerClien
 			game.broadcast(data.CraftUpdateScore(playerState.Info.UserID, playerState.Scores))
 
 		case data.VarScoreRoll:
-			var scoreRoll data.VariantScoreRoll
-			if err = step.UnmarshalData(&scoreRoll); err != nil {
-				log.Println("Error unmarshalling score and roll:", err)
-				_ = playerClient.Send(data.CraftError(errBadData, "sent bad data"))
-				continue
-			}
-
-			if playerState.Info.UserID != scoreRoll.PlayerID {
-				_ = playerClient.Send(data.CraftError(errBadPlayer, "bad player id"))
-				continue
-			}
-
 			if playerState.Scores.Selected == 0 {
 				_ = playerClient.Send(data.CraftError(errNoneSelected, "no dice selected"))
 				continue
@@ -283,18 +271,6 @@ func (game *FarkleGame) diceSelection(playerState *data.PlayerState, playerClien
 			return true, nil
 
 		case data.VarEndTurn:
-			var endTurn data.VariantEndTurn
-			if err = step.UnmarshalData(&endTurn); err != nil {
-				log.Println("Error unmarshalling end turn:", err)
-				_ = playerClient.Send(data.CraftError(errBadData, "sent bad data"))
-				continue
-			}
-
-			if playerState.Info.UserID != endTurn.PlayerID {
-				_ = playerClient.Send(data.CraftError(errBadPlayer, "bad player id"))
-				continue
-			}
-
 			if hasExtraDice {
 				_ = playerClient.Send(data.CraftError(errExtraDice, "extra dice selected"))
 				continue
