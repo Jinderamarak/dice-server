@@ -2,12 +2,13 @@ package web
 
 import (
 	"dice-server/common/auth/token"
+	"dice-server/common/web"
 	"dice-server/game/common/client"
 	"dice-server/game/farkle/internal/config"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"net/http"
+	"time"
 )
 
 var upgrader = websocket.Upgrader{
@@ -25,53 +26,61 @@ func NewEntryPoint(manager *client.WebSocketManager) *EntryPoint {
 }
 
 func (entry *EntryPoint) Run(fail chan<- error) {
-	server := gin.Default()
-	server.Use(corsMiddleware())
-	server.GET("/api/game/farkle/:auth", entry.entryHandler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/game/farkle/{auth}", corsed(entry.entryHandler))
 
-	host := fmt.Sprintf(":%d", config.Config.Port)
-	res := server.Run(host)
-	fail <- res
+	addr := fmt.Sprintf(":%d", config.Config.Port)
+	server := &http.Server{
+		Addr:    addr,
+		Handler: mux,
+		//	Short timeouts since requests are quickly upgraded
+		ReadTimeout:       time.Second * 10,
+		ReadHeaderTimeout: time.Second * 10,
+		WriteTimeout:      time.Second * 10,
+		IdleTimeout:       time.Second * 10,
+		MaxHeaderBytes:    10 << 10,
+	}
+
+	err := server.ListenAndServe()
+	fail <- err
 }
 
-func corsMiddleware() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		ctx.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT")
+func corsed(fn func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "*")
 
-		if ctx.Request.Method == "OPTIONS" {
-			ctx.AbortWithStatus(204)
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
-		ctx.Next()
+		fn(w, r)
 	}
 }
 
-func (entry *EntryPoint) entryHandler(ctx *gin.Context) {
-	auth := ctx.Param("auth")
+func (entry *EntryPoint) entryHandler(w http.ResponseWriter, r *http.Request) {
+	auth := r.PathValue("auth")
 	gameToken, err := token.ValidateGameToken(auth, []byte(config.Config.Auth.Secret))
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		web.SendJson(w, http.StatusUnauthorized, web.D{"error": "Invalid token"})
 		return
 	}
 
 	if gameToken.ServerID != config.Config.Server.ID {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid server ID"})
+		web.SendJson(w, http.StatusUnauthorized, web.D{"error": "Invalid server ID"})
 		return
 	}
 
-	conn, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upgrade connection"})
+		web.SendJson(w, http.StatusUnauthorized, web.D{"error": "Failed to upgrade connection"})
 		return
 	}
 
 	_, ok := entry.manager.UpgradeClient(gameToken.GameID, gameToken.UserID, conn)
 	if !ok {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "Game not found"})
+		web.SendJson(w, http.StatusNotFound, web.D{"error": "Game not found"})
 		return
 	}
 }
