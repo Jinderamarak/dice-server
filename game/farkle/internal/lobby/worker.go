@@ -1,6 +1,7 @@
 package lobby
 
 import (
+	"context"
 	"dice-server/common/auth/token"
 	"dice-server/common/queue"
 	"dice-server/game/common/client"
@@ -13,17 +14,29 @@ import (
 	"time"
 )
 
-func RunWorker(fail chan<- error, pool *queue.Pool, manager *client.WebSocketManager) {
-	res := workerLoop(pool, manager)
-	fail <- res
+var shutdownTimeout = time.Minute * 30
+
+func RunWorker(fail chan<- error, pool *queue.Pool, manager *client.WebSocketManager, ctx context.Context) {
+	err := workerLoop(pool, manager, ctx)
+	log.Println("Worker loop closing:", err)
+
+	select {
+	case <-manager.AllGamesClosed():
+		log.Println("All games closed, shutting down worker")
+	case <-time.After(shutdownTimeout):
+		err = errors.Wrap(err, "game shutdown timeout")
+	}
+
+	fail <- err
 }
 
-func workerLoop(pool *queue.Pool, manager *client.WebSocketManager) error {
+func workerLoop(pool *queue.Pool, manager *client.WebSocketManager, ctx context.Context) error {
 	consumer := pool.GetConsumer(connect.CreateLobbyQueue)
 	defer consumer.Close()
 
 	messages := consumer.Consume()
-	for msg := range messages {
+	select {
+	case msg := <-messages:
 		err := attemptLobby(pool, manager, &msg)
 		if err != nil {
 			if err = msg.Nack(false, false); err != nil {
@@ -34,6 +47,9 @@ func workerLoop(pool *queue.Pool, manager *client.WebSocketManager) error {
 				return errors.Wrap(err, "failed to ack message")
 			}
 		}
+	case <-ctx.Done():
+		log.Println("Worker consumer shutting down")
+		return errors.New("worker consumer shutting down")
 	}
 
 	return errors.New("worker consumer ended")

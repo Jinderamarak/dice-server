@@ -121,8 +121,9 @@ func (c *PlayerClient) DrainMessages() {
 	for {
 		select {
 		case <-c.incoming:
-			// Drain the channel
+			// Message removed
 		default:
+			// No more messages
 			return
 		}
 	}

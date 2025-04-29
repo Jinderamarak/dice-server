@@ -34,14 +34,16 @@ func (clients *gameClients) close() {
 }
 
 type WebSocketManager struct {
-	gamesMu sync.Mutex
-	games   map[uuid.UUID]*gameClients
+	gamesMu   sync.Mutex
+	games     map[uuid.UUID]*gameClients
+	allClosed chan struct{}
 }
 
 func NewWebSocketManager() *WebSocketManager {
 	return &WebSocketManager{
-		gamesMu: sync.Mutex{},
-		games:   make(map[uuid.UUID]*gameClients),
+		gamesMu:   sync.Mutex{},
+		games:     make(map[uuid.UUID]*gameClients),
+		allClosed: make(chan struct{}),
 	}
 }
 
@@ -96,6 +98,11 @@ func (manager *WebSocketManager) CloseGame(gameID uuid.UUID) {
 	defer manager.gamesMu.Unlock()
 
 	delete(manager.games, gameID)
+
+	if len(manager.games) == 0 {
+		close(manager.allClosed)
+		manager.allClosed = make(chan struct{})
+	}
 }
 
 func (manager *WebSocketManager) Close() {
@@ -107,4 +114,14 @@ func (manager *WebSocketManager) Close() {
 	}
 
 	manager.games = make(map[uuid.UUID]*gameClients)
+
+	select {
+	case <-manager.allClosed:
+	default:
+		close(manager.allClosed)
+	}
+}
+
+func (manager *WebSocketManager) AllGamesClosed() <-chan struct{} {
+	return manager.allClosed
 }
