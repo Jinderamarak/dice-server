@@ -4,6 +4,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"sync"
+	"time"
 )
 
 type gameClients struct {
@@ -122,6 +123,21 @@ func (manager *WebSocketManager) Close() {
 	}
 }
 
-func (manager *WebSocketManager) AllGamesClosed() <-chan struct{} {
-	return manager.allClosed
+func (manager *WebSocketManager) TryWaitForAllClosed(timeout time.Duration) bool {
+	manager.gamesMu.Lock()
+	length := len(manager.games)
+	manager.gamesMu.Unlock()
+
+	if length == 0 {
+		return true
+	} else {
+		select {
+		case <-manager.allClosed:
+			return true
+		case <-time.After(timeout):
+			manager.gamesMu.Lock()
+			defer manager.gamesMu.Unlock()
+			return len(manager.games) == 0
+		}
+	}
 }

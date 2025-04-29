@@ -20,11 +20,11 @@ func RunWorker(fail chan<- error, pool *queue.Pool, manager *client.WebSocketMan
 	err := workerLoop(pool, manager, ctx)
 	log.Println("Worker loop closing:", err)
 
-	select {
-	case <-manager.AllGamesClosed():
-		log.Println("All games closed, shutting down worker")
-	case <-time.After(shutdownTimeout):
+	closed := manager.TryWaitForAllClosed(shutdownTimeout)
+	if !closed {
 		err = errors.Wrap(err, "game shutdown timeout")
+	} else {
+		log.Println("All games shutdown")
 	}
 
 	fail <- err
