@@ -35,24 +35,28 @@ func workerLoop(pool *queue.Pool, manager *client.WebSocketManager, ctx context.
 	defer consumer.Close()
 
 	messages := consumer.Consume()
-	select {
-	case msg := <-messages:
-		err := attemptLobby(pool, manager, &msg)
-		if err != nil {
-			if err = msg.Nack(false, false); err != nil {
-				return errors.Wrap(err, "failed to nack message")
+	for {
+		select {
+		case msg, ok := <-messages:
+			if !ok {
+				return errors.New("worker consumer channel closed")
 			}
-		} else {
-			if err = msg.Ack(false); err != nil {
-				return errors.Wrap(err, "failed to ack message")
-			}
-		}
-	case <-ctx.Done():
-		log.Println("Worker consumer shutting down")
-		return errors.New("worker consumer shutting down")
-	}
 
-	return errors.New("worker consumer ended")
+			err := attemptLobby(pool, manager, &msg)
+			if err != nil {
+				if err = msg.Nack(false, false); err != nil {
+					return errors.Wrap(err, "failed to nack message")
+				}
+			} else {
+				if err = msg.Ack(false); err != nil {
+					return errors.Wrap(err, "failed to ack message")
+				}
+			}
+		case <-ctx.Done():
+			log.Println("Worker consumer shutting down")
+			return errors.New("worker consumer shutting down")
+		}
+	}
 }
 
 func attemptLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *amqp.Delivery) error {
