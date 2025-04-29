@@ -3,15 +3,16 @@ package main
 import (
 	"dice-server/common/queue"
 	"dice-server/common/utility"
+	"dice-server/common/web"
 	"dice-server/game-master/internal/config"
 	"dice-server/game/farkle/connect"
 	"encoding/json"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"log"
 	"net/http"
+	"time"
 )
 
 var queuePool *queue.Pool
@@ -31,30 +32,39 @@ func main() {
 	}
 	defer utility.CloseAndIgnore(queuePool)
 
-	server := gin.Default()
-	server.Use(corsMiddleware())
-	server.POST("/api/game/farkle", createFarkleHandler)
-	server.POST("/api/game/farkle/:gameId/join", joinFarkleHandler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/game/farkle", corsed(createFarkleHandler))
+	mux.HandleFunc("/api/game/farkle/{gameId}/join", corsed(joinFarkleHandler))
 
-	host := fmt.Sprintf(":%d", config.Config.Port)
-	if err = server.Run(host); err != nil {
-		log.Panicln("Failed to start server:", err)
+	addr := fmt.Sprintf(":%d", config.Config.Port)
+	server := &http.Server{
+		Addr:    addr,
+		Handler: mux,
+		//	Short timeouts since requests are quickly upgraded
+		ReadTimeout:       time.Second * 10,
+		ReadHeaderTimeout: time.Second * 10,
+		WriteTimeout:      time.Second * 10,
+		IdleTimeout:       time.Second * 10,
+		MaxHeaderBytes:    1 << 20,
+	}
+
+	if err = server.ListenAndServe(); err != nil {
+		log.Panicln("Failed to run server:", err)
 	}
 }
 
-func corsMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT")
+func corsed(fn func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
 
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
-		c.Next()
+		fn(w, r)
 	}
 }
 
@@ -114,23 +124,22 @@ type CreateRequestBody struct {
 	Target   int    `json:"target"`
 }
 
-func createFarkleHandler(ctx *gin.Context) {
+func createFarkleHandler(w http.ResponseWriter, r *http.Request) {
 	gameID := uuid.New()
 	playerID := uuid.New()
 
 	var requestBody CreateRequestBody
-	if err := ctx.ShouldBindJSON(&requestBody); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		web.SendJson(w, http.StatusBadRequest, web.D{"error": "Invalid request body"})
 	}
 
 	if requestBody.Target < 1000 || requestBody.Target > 100_000 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Target must be between 1000 and 100000"})
+		web.SendJson(w, http.StatusBadRequest, web.D{"error": "Target must be between 1000 and 100000"})
 		return
 	}
 
 	if len(requestBody.Username) < 3 || len(requestBody.Username) > 20 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Username must be between 3 and 20 characters"})
+		web.SendJson(w, http.StatusBadRequest, web.D{"error": "Username must be between 3 and 20 characters"})
 		return
 	}
 
@@ -154,11 +163,11 @@ func createFarkleHandler(ctx *gin.Context) {
 	accepted, err := createGameFarkle(createLobby)
 	if err != nil {
 		log.Println("Failed to create game:", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create game"})
+		web.SendJson(w, http.StatusInternalServerError, web.D{"error": "Failed to create game"})
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{
+	web.SendJson(w, http.StatusCreated, web.D{
 		"userId":     playerID,
 		"gameId":     accepted.GameID,
 		"serverId":   accepted.ServerID,
@@ -171,22 +180,22 @@ type JoinRequestBody struct {
 	Username string `json:"username"`
 }
 
-func joinFarkleHandler(ctx *gin.Context) {
-	gameIDStr := ctx.Param("gameId")
+func joinFarkleHandler(w http.ResponseWriter, r *http.Request) {
+	gameIDStr := r.PathValue("gameId")
 	gameID, err := uuid.Parse(gameIDStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid game ID"})
+		web.SendJson(w, http.StatusBadRequest, web.D{"error": "Invalid game ID"})
 		return
 	}
 
 	var requestBody JoinRequestBody
-	if err := ctx.ShouldBindJSON(&requestBody); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		web.SendJson(w, http.StatusBadRequest, web.D{"error": "Invalid request body"})
 		return
 	}
 
 	if len(requestBody.Username) < 3 || len(requestBody.Username) > 20 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Username must be between 3 and 20 characters"})
+		web.SendJson(w, http.StatusBadRequest, web.D{"error": "Username must be between 3 and 20 characters"})
 		return
 	}
 
@@ -209,11 +218,11 @@ func joinFarkleHandler(ctx *gin.Context) {
 	joined, err := joinGameFarkle(gameID, joinLobby)
 	if err != nil {
 		log.Println("Failed to join game:", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to join game"})
+		web.SendJson(w, http.StatusInternalServerError, web.D{"error": "Failed to join game"})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
+	web.SendJson(w, http.StatusOK, web.D{
 		"userId":     playerID,
 		"gameId":     joined.GameID,
 		"serverId":   joined.ServerID,
