@@ -33,7 +33,3 @@ type LobbyPlayer struct {
 	Username string      `json:"username"`
 	DiceSet  []LobbyDice `json:"diceSet"`
 }
-
-type LobbyDice struct {
-	ID uuid.UUID `json:"id"`
-}

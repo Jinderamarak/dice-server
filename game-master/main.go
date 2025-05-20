@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -149,14 +150,7 @@ func createFarkleHandler(w http.ResponseWriter, r *http.Request) {
 		Player: connect.LobbyPlayer{
 			UserID:   playerID,
 			Username: requestBody.Username,
-			DiceSet: []connect.LobbyDice{
-				{uuid.New()},
-				{uuid.New()},
-				{uuid.New()},
-				{uuid.New()},
-				{uuid.New()},
-				{uuid.New()},
-			},
+			DiceSet:  farkleDiceSet(requestBody.Username),
 		},
 	}
 
@@ -204,14 +198,7 @@ func joinFarkleHandler(w http.ResponseWriter, r *http.Request) {
 		Player: connect.LobbyPlayer{
 			UserID:   playerID,
 			Username: requestBody.Username,
-			DiceSet: []connect.LobbyDice{
-				{uuid.New()},
-				{uuid.New()},
-				{uuid.New()},
-				{uuid.New()},
-				{uuid.New()},
-				{uuid.New()},
-			},
+			DiceSet:  farkleDiceSet(requestBody.Username),
 		},
 	}
 
@@ -229,4 +216,37 @@ func joinFarkleHandler(w http.ResponseWriter, r *http.Request) {
 		"serverHost": joined.ServerHost,
 		"token":      joined.Auth,
 	})
+}
+
+func farkleDiceSet(username string) []connect.LobbyDice {
+	parts := strings.Split(username, "_")
+	if len(parts) > 1 {
+		last := parts[len(parts)-1]
+		if len(last) == 6 {
+			diceSet := make([]connect.LobbyDice, 6)
+			for i, c := range last {
+				switch c {
+				case '1':
+					diceSet[i] = connect.LobbyDice{uuid.New(), connect.DiceEven}
+				case '2':
+					diceSet[i] = connect.LobbyDice{uuid.New(), connect.DiceOdd}
+				case '3':
+					diceSet[i] = connect.LobbyDice{uuid.New(), connect.DiceLucky}
+				default:
+					diceSet[i] = connect.LobbyDice{uuid.New(), connect.DiceRegular}
+				}
+			}
+
+			return diceSet
+		}
+	}
+
+	return []connect.LobbyDice{
+		{uuid.New(), connect.DiceRegular},
+		{uuid.New(), connect.DiceRegular},
+		{uuid.New(), connect.DiceRegular},
+		{uuid.New(), connect.DiceRegular},
+		{uuid.New(), connect.DiceRegular},
+		{uuid.New(), connect.DiceRegular},
+	}
 }

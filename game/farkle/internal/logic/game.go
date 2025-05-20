@@ -44,12 +44,12 @@ func NewFarkleGame(
 ) *FarkleGame {
 	firstDice := make([]*data.Dice, len(firstPlayer.DiceSet))
 	for i, d := range firstPlayer.DiceSet {
-		firstDice[i] = data.NewDice(d.ID)
+		firstDice[i] = data.NewDice(d.ID, d.Variant)
 	}
 
 	secondDice := make([]*data.Dice, len(secondPlayer.DiceSet))
 	for i, d := range secondPlayer.DiceSet {
-		secondDice[i] = data.NewDice(d.ID)
+		secondDice[i] = data.NewDice(d.ID, d.Variant)
 	}
 
 	return &FarkleGame{
