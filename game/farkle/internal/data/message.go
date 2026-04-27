@@ -10,6 +10,8 @@ const (
 	VarPleaseReady   = "farkle-please-ready"
 	VarPlayerReady   = "farkle-player-ready"
 	VarPlayerJoining = "farkle-player-joining"
+	VarDicePick      = "farkle-dice-pick"
+	VarDicePicked    = "farkle-dice-picked"
 	VarGameBegin     = "farkle-game-begin"
 	VarPleaseSync    = "farkle-please-sync"
 	VarSyncState     = "farkle-sync-state"
@@ -35,6 +37,16 @@ type VariantPlayerReady struct {
 
 type VariantPlayerJoining struct {
 	Info *connect.LobbyPlayer `json:"info"`
+}
+
+type VariantDicePick struct {
+	PlayerID uuid.UUID `json:"playerId"`
+	Variants []string  `json:"variants"`
+}
+
+type VariantDicePicked struct {
+	PlayerID uuid.UUID           `json:"playerId"`
+	DiceSet  []connect.LobbyDice `json:"diceSet"`
 }
 
 type VariantGameBegin struct {
@@ -108,6 +120,10 @@ func CraftPlayerReady(playerID uuid.UUID) *client.Message {
 
 func CraftPlayerJoining(info *connect.LobbyPlayer) *client.Message {
 	return client.MustCraftMessage(VarPlayerJoining, VariantPlayerJoining{Info: info})
+}
+
+func CraftDicePicked(playerID uuid.UUID, diceSet []connect.LobbyDice) *client.Message {
+	return client.MustCraftMessage(VarDicePicked, VariantDicePicked{PlayerID: playerID, DiceSet: diceSet})
 }
 
 func CraftGameBegin(state *GameState) *client.Message {
