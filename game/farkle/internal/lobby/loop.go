@@ -173,10 +173,16 @@ func waitForReady(myClient *data.PlayerClient, playerID uuid.UUID, otherClient *
 			switch msg.Variant {
 			case data.VarDicePick:
 				var pick data.VariantDicePick
-				if err := msg.UnmarshalData(&pick); err != nil || pick.PlayerID != playerID {
+				if err := msg.UnmarshalData(&pick); err != nil {
+					log.Println("Failed to unmarshal dice pick:", err)
+					continue
+				}
+				if pick.PlayerID != playerID {
+					log.Printf("Ignoring dice pick for mismatched player id: got %s, expected %s", pick.PlayerID, playerID)
 					continue
 				}
 				if !validDiceVariants(pick.Variants) {
+					log.Printf("Ignoring dice pick with invalid variants: %v", pick.Variants)
 					continue
 				}
 				diceSet := make([]connect.LobbyDice, 6)

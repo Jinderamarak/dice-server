@@ -149,14 +149,7 @@ func createFarkleHandler(w http.ResponseWriter, r *http.Request) {
 		Player: connect.LobbyPlayer{
 			UserID:   playerID,
 			Username: requestBody.Username,
-			DiceSet: []connect.LobbyDice{
-				{ID: uuid.New(), Variant: connect.DiceRegular},
-				{ID: uuid.New(), Variant: connect.DiceRegular},
-				{ID: uuid.New(), Variant: connect.DiceRegular},
-				{ID: uuid.New(), Variant: connect.DiceRegular},
-				{ID: uuid.New(), Variant: connect.DiceRegular},
-				{ID: uuid.New(), Variant: connect.DiceRegular},
-			},
+			DiceSet: defaultDiceSet(),
 		},
 	}
 
@@ -204,14 +197,7 @@ func joinFarkleHandler(w http.ResponseWriter, r *http.Request) {
 		Player: connect.LobbyPlayer{
 			UserID:   playerID,
 			Username: requestBody.Username,
-			DiceSet: []connect.LobbyDice{
-				{ID: uuid.New(), Variant: connect.DiceRegular},
-				{ID: uuid.New(), Variant: connect.DiceRegular},
-				{ID: uuid.New(), Variant: connect.DiceRegular},
-				{ID: uuid.New(), Variant: connect.DiceRegular},
-				{ID: uuid.New(), Variant: connect.DiceRegular},
-				{ID: uuid.New(), Variant: connect.DiceRegular},
-			},
+			DiceSet: defaultDiceSet(),
 		},
 	}
 
@@ -229,5 +215,13 @@ func joinFarkleHandler(w http.ResponseWriter, r *http.Request) {
 		"serverHost": joined.ServerHost,
 		"token":      joined.Auth,
 	})
+}
+
+func defaultDiceSet() []connect.LobbyDice {
+	dice := make([]connect.LobbyDice, 6)
+	for i := range dice {
+		dice[i] = connect.LobbyDice{ID: uuid.New(), Variant: connect.DiceRegular}
+	}
+	return dice
 }
 
