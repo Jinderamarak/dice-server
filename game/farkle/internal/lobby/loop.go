@@ -207,7 +207,10 @@ func waitForReady(myClient *data.PlayerClient, playerID uuid.UUID, otherClient *
 		case <-time.After(playerPleaseInterval):
 			continue
 		case <-myClient.Closing():
-			connected <- errors.New("client closed")
+			select {
+			case connected <- errors.New("client closed"):
+			case <-canceled:
+			}
 			return
 		case <-canceled:
 			return
