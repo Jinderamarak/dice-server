@@ -200,6 +200,9 @@ func waitForReady(myClient *data.PlayerClient, playerID uuid.UUID, otherClient *
 					continue
 				}
 				if playerReady.PlayerID == playerID {
+					ready := data.CraftPlayerReady(playerID)
+					_ = myClient.Send(ready)
+					_ = otherClient.Send(ready)
 					close(connected)
 					return
 				}
