@@ -44,8 +44,8 @@ func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.C
 	canceled := make(chan struct{})
 
 	log.Println("Waiting for both players to connect")
-	go waitForReady(firstClient, firstPlayer.UserID, firstConnected, canceled)
-	go waitForReady(secondClient, secondPlayer.UserID, secondConnected, canceled)
+	go waitForReady(firstClient, firstPlayer.UserID, secondClient, &firstPlayer, firstConnected, canceled)
+	go waitForReady(secondClient, secondPlayer.UserID, firstClient, secondPlayer, secondConnected, canceled)
 
 	firstIsDone := false
 	secondIsDone := false
@@ -163,21 +163,42 @@ func waitForOtherPlayer(pool *queue.Pool, manager *client.WebSocketManager, game
 	}
 }
 
-func waitForReady(client *data.PlayerClient, playerID uuid.UUID, connected chan<- error, canceled <-chan struct{}) {
-	defer client.SetTurn(false)
+func waitForReady(myClient *data.PlayerClient, playerID uuid.UUID, otherClient *data.PlayerClient, playerInfo *connect.LobbyPlayer, connected chan<- error, canceled <-chan struct{}) {
+	defer myClient.SetTurn(false)
 
 	for {
-		_ = client.Send(data.CraftPleaseReady())
+		_ = myClient.Send(data.CraftPleaseReady())
 		select {
-		case msg := <-client.Receiving():
-			if msg.Variant == data.VarPlayerReady {
+		case msg := <-myClient.Receiving():
+			switch msg.Variant {
+			case data.VarDicePick:
+				var pick data.VariantDicePick
+				if err := msg.UnmarshalData(&pick); err != nil {
+					log.Println("Failed to unmarshal dice pick:", err)
+					continue
+				}
+				if pick.PlayerID != playerID {
+					log.Printf("Ignoring dice pick for mismatched player id: got %s, expected %s", pick.PlayerID, playerID)
+					continue
+				}
+				if !validDiceVariants(pick.Variants) {
+					log.Printf("Ignoring dice pick with invalid variants: %v", pick.Variants)
+					continue
+				}
+				diceSet := make([]connect.LobbyDice, 6)
+				for i, v := range pick.Variants {
+					diceSet[i] = connect.LobbyDice{ID: uuid.New(), Variant: v}
+				}
+				playerInfo.DiceSet = diceSet
+				picked := data.CraftDicePicked(playerID, diceSet)
+				_ = myClient.Send(picked)
+				_ = otherClient.Send(picked)
+			case data.VarPlayerReady:
 				var playerReady data.VariantPlayerReady
-				err := msg.UnmarshalData(&playerReady)
-				if err != nil {
+				if err := msg.UnmarshalData(&playerReady); err != nil {
 					log.Println("Failed to unmarshal player ready:", err)
 					continue
 				}
-
 				if playerReady.PlayerID == playerID {
 					close(connected)
 					return
@@ -185,11 +206,26 @@ func waitForReady(client *data.PlayerClient, playerID uuid.UUID, connected chan<
 			}
 		case <-time.After(playerPleaseInterval):
 			continue
-		case <-client.Closing():
-			connected <- errors.New("client closed")
+		case <-myClient.Closing():
+			select {
+			case connected <- errors.New("client closed"):
+			case <-canceled:
+			}
 			return
 		case <-canceled:
 			return
 		}
 	}
+}
+
+func validDiceVariants(variants []string) bool {
+	if len(variants) != 6 {
+		return false
+	}
+	for _, v := range variants {
+		if _, ok := connect.DiceDistributions[v]; !ok {
+			return false
+		}
+	}
+	return true
 }
