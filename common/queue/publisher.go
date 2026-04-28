@@ -1,6 +1,8 @@
 package queue
 
 import (
+	"context"
+	"dice-server/common/telemetry"
 	"encoding/json"
 	"github.com/pkg/errors"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -10,6 +12,7 @@ import (
 type rawMessage struct {
 	body        []byte
 	contentType string
+	headers     amqp.Table
 }
 
 type Publisher struct {
@@ -63,6 +66,7 @@ func (pub *Publisher) keepPublishing(ch *Channel, lastMsg **rawMessage) error {
 				DeliveryMode: deliveryMode,
 				ContentType:  msg.contentType,
 				Body:         msg.body,
+				Headers:      msg.headers,
 			},
 		)
 		ch.unlock()
@@ -94,20 +98,21 @@ func (pub *Publisher) loop() {
 	}
 }
 
-func (pub *Publisher) Publish(body []byte, contentType string) {
+func (pub *Publisher) Publish(ctx context.Context, body []byte, contentType string) {
 	pub.msgs <- &rawMessage{
 		body:        body,
 		contentType: contentType,
+		headers:     telemetry.InjectAMQP(ctx),
 	}
 }
 
-func (pub *Publisher) PublishJSON(data any) error {
+func (pub *Publisher) PublishJSON(ctx context.Context, data any) error {
 	body, err := json.Marshal(data)
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal json")
 	}
 
-	pub.Publish(body, "application/json")
+	pub.Publish(ctx, body, "application/json")
 	return nil
 }
 

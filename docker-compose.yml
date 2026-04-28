@@ -1,4 +1,13 @@
 services:
+  dice-jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: dice-jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4318:4318"    # OTLP HTTP receiver
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
   dice-master:
     image: ghcr.io/jinderamarak/dice-master:latest
     build:
@@ -9,10 +18,14 @@ services:
     depends_on:
       dice-rabbit:
         condition: service_started
+      dice-jaeger:
+        condition: service_started
     ports:
       - "9000:8080"
     environment:
       DICE_RABBIT_URL: "amqp://guest:guest@dice-rabbit:5672"
+      OTEL_SERVICE_NAME: "dice-master"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://dice-jaeger:4318"
   dice-farkle:
     image: ghcr.io/jinderamarak/dice-farkle:latest
     build:
@@ -23,6 +36,8 @@ services:
     depends_on:
       dice-rabbit:
         condition: service_started
+      dice-jaeger:
+        condition: service_started
     ports:
       - "9001:8080"
     environment:
@@ -30,6 +45,8 @@ services:
       FARKLE_AUTH_ISSUER: "dev-game-farkle"
       FARKLE_RABBIT_URL: "amqp://guest:guest@dice-rabbit:5672"
       FARKLE_SERVER_HOST: "localhost:9001"
+      OTEL_SERVICE_NAME: "dice-farkle"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://dice-jaeger:4318"
   dice-rabbit:
     image: rabbitmq:latest
     container_name: dice-rabbit

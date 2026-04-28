@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"dice-server/common/queue"
+	"dice-server/common/telemetry"
 	"dice-server/common/utility"
 	"dice-server/game/common/client"
 	"dice-server/game/farkle/internal/config"
@@ -20,6 +21,16 @@ func main() {
 	}
 
 	log.Println("Starting server with ID:", config.Config.Server.ID)
+
+	otelShutdown, err := telemetry.Setup(context.Background())
+	if err != nil {
+		log.Panicln("Failed to initialize OpenTelemetry:", err)
+	}
+	defer func() {
+		if err := otelShutdown(context.Background()); err != nil {
+			log.Println("OTel shutdown error:", err)
+		}
+	}()
 
 	pool, err := queue.NewPool(
 		config.Config.Rabbit.Connections,

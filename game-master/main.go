@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"dice-server/common/queue"
+	"dice-server/common/telemetry"
 	"dice-server/common/utility"
 	"dice-server/common/web"
 	"dice-server/game-master/internal/config"
@@ -10,6 +12,10 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"log"
 	"net/http"
 	"time"
@@ -22,7 +28,16 @@ func main() {
 		log.Panicln("Failed to load configuration:", err)
 	}
 
-	var err error
+	otelShutdown, err := telemetry.Setup(context.Background())
+	if err != nil {
+		log.Panicln("Failed to initialize OpenTelemetry:", err)
+	}
+	defer func() {
+		if err := otelShutdown(context.Background()); err != nil {
+			log.Println("OTel shutdown error:", err)
+		}
+	}()
+
 	if queuePool, err = queue.NewPool(
 		config.Config.Rabbit.Connections,
 		config.Config.Rabbit.Channels,
@@ -39,7 +54,7 @@ func main() {
 	addr := fmt.Sprintf(":%d", config.Config.Port)
 	server := &http.Server{
 		Addr:    addr,
-		Handler: mux,
+		Handler: otelhttp.NewHandler(mux, "game-master"),
 		//	Short timeouts since requests are quickly upgraded
 		ReadTimeout:       time.Second * 10,
 		ReadHeaderTimeout: time.Second * 10,
@@ -68,14 +83,21 @@ func corsed(fn func(w http.ResponseWriter, r *http.Request)) func(w http.Respons
 	}
 }
 
-func createGameFarkle(data connect.CreateFarkleRequest) (*connect.CreateFarkleResponse, error) {
+func createGameFarkle(ctx context.Context, data connect.CreateFarkleRequest) (*connect.CreateFarkleResponse, error) {
+	tracer := otel.Tracer("game-master")
+	ctx, span := tracer.Start(ctx, "createGameFarkle",
+		trace.WithAttributes(attribute.String("game.id", data.GameID.String())),
+	)
+	defer span.End()
+
 	publisher := queuePool.GetPublisher(connect.CreateLobbyQueue)
 	defer publisher.Close()
 
 	listener := queuePool.GetConsumer(connect.AcceptLobbyQueue(data.GameID))
 	defer listener.Close()
 
-	if err := publisher.PublishJSON(data); err != nil {
+	if err := publisher.PublishJSON(ctx, data); err != nil {
+		span.RecordError(err)
 		return nil, errors.Wrap(err, "failed to publish create game message")
 	}
 
@@ -95,14 +117,21 @@ func createGameFarkle(data connect.CreateFarkleRequest) (*connect.CreateFarkleRe
 	return nil, errors.New("failed to receive accepted lobby message")
 }
 
-func joinGameFarkle(gameID uuid.UUID, data connect.JoinFarkleRequest) (*connect.JoinFarkleResponse, error) {
+func joinGameFarkle(ctx context.Context, gameID uuid.UUID, data connect.JoinFarkleRequest) (*connect.JoinFarkleResponse, error) {
+	tracer := otel.Tracer("game-master")
+	ctx, span := tracer.Start(ctx, "joinGameFarkle",
+		trace.WithAttributes(attribute.String("game.id", gameID.String())),
+	)
+	defer span.End()
+
 	publisher := queuePool.GetPublisher(connect.JoinLobbyQueue(gameID))
 	defer publisher.Close()
 
 	listener := queuePool.GetConsumer(connect.JoinedLobbyQueue(gameID))
 	defer listener.Close()
 
-	if err := publisher.PublishJSON(data); err != nil {
+	if err := publisher.PublishJSON(ctx, data); err != nil {
+		span.RecordError(err)
 		return nil, errors.Wrap(err, "failed to publish join game message")
 	}
 
@@ -153,7 +182,7 @@ func createFarkleHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	accepted, err := createGameFarkle(createLobby)
+	accepted, err := createGameFarkle(r.Context(), createLobby)
 	if err != nil {
 		log.Println("Failed to create game:", err)
 		web.SendJson(w, http.StatusInternalServerError, web.D{"error": "Failed to create game"})
@@ -201,7 +230,7 @@ func joinFarkleHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	joined, err := joinGameFarkle(gameID, joinLobby)
+	joined, err := joinGameFarkle(r.Context(), gameID, joinLobby)
 	if err != nil {
 		log.Println("Failed to join game:", err)
 		web.SendJson(w, http.StatusInternalServerError, web.D{"error": "Failed to join game"})

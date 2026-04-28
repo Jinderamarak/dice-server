@@ -7,6 +7,7 @@ import (
 	"dice-server/game/farkle/internal/config"
 	"fmt"
 	"github.com/gorilla/websocket"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"net/http"
 	"time"
 )
@@ -32,7 +33,7 @@ func (entry *EntryPoint) Run(fail chan<- error) {
 	addr := fmt.Sprintf(":%d", config.Config.Port)
 	server := &http.Server{
 		Addr:    addr,
-		Handler: mux,
+		Handler: otelhttp.NewHandler(mux, "game-farkle"),
 		//	Short timeouts since requests are quickly upgraded
 		ReadTimeout:       time.Second * 10,
 		ReadHeaderTimeout: time.Second * 10,

@@ -1,6 +1,7 @@
 package lobby
 
 import (
+	"context"
 	"dice-server/common/auth/token"
 	"dice-server/common/queue"
 	"dice-server/game/common/client"
@@ -11,6 +12,9 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"log"
 	"time"
 )
@@ -21,20 +25,29 @@ const (
 	playerPleaseInterval = time.Second * 5
 )
 
-func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.CreateFarkleRequest) error {
+func runLobby(ctx context.Context, pool *queue.Pool, manager *client.WebSocketManager, msg *connect.CreateFarkleRequest) error {
+	tracer := otel.Tracer("game-farkle")
+	ctx, span := tracer.Start(ctx, "runLobby",
+		trace.WithAttributes(attribute.String("game.id", msg.GameID.String())),
+	)
+	defer span.End()
+
 	firstPlayer := msg.Player
 	firstClient, err := createPlayer(manager, msg.GameID, firstPlayer.UserID)
 	if err != nil {
+		span.RecordError(err)
 		return errors.Wrap(err, "failed to create first player")
 	}
 
-	secondClient, secondPlayer, err := waitForOtherPlayer(pool, manager, msg.GameID, time.Now().Add(playerJoinTimeout))
+	secondClient, secondPlayer, err := waitForOtherPlayer(ctx, pool, manager, msg.GameID, time.Now().Add(playerJoinTimeout))
 	if err != nil {
+		span.RecordError(err)
 		abandonConnecting(manager, msg.GameID, firstClient, nil, "failed to wait for other player")
 		return errors.Wrap(err, "failed to wait for other player")
 	}
 
 	if err := firstClient.Send(data.CraftPlayerJoining(secondPlayer)); err != nil {
+		span.RecordError(err)
 		abandonConnecting(manager, msg.GameID, firstClient, secondClient, "failed to send player joining")
 		return errors.Wrap(err, "failed to send player joining")
 	}
@@ -56,6 +69,7 @@ func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.C
 			if ok && first != nil {
 				close(canceled)
 				abandonConnecting(manager, msg.GameID, firstClient, secondClient, "player failed to connect")
+				span.RecordError(first)
 				return errors.Wrap(first, "first player failed to connect")
 			}
 
@@ -67,6 +81,7 @@ func runLobby(pool *queue.Pool, manager *client.WebSocketManager, msg *connect.C
 			if ok && second != nil {
 				close(canceled)
 				abandonConnecting(manager, msg.GameID, firstClient, secondClient, "player failed to connect")
+				span.RecordError(second)
 				return errors.Wrap(second, "second player failed to connect")
 			}
 
@@ -110,7 +125,13 @@ func createPlayer(manager *client.WebSocketManager, gameID, userID uuid.UUID) (*
 	return player, nil
 }
 
-func waitForOtherPlayer(pool *queue.Pool, manager *client.WebSocketManager, gameID uuid.UUID, deadline time.Time) (*data.PlayerClient, *connect.LobbyPlayer, error) {
+func waitForOtherPlayer(ctx context.Context, pool *queue.Pool, manager *client.WebSocketManager, gameID uuid.UUID, deadline time.Time) (*data.PlayerClient, *connect.LobbyPlayer, error) {
+	tracer := otel.Tracer("game-farkle")
+	ctx, span := tracer.Start(ctx, "waitForOtherPlayer",
+		trace.WithAttributes(attribute.String("game.id", gameID.String())),
+	)
+	defer span.End()
+
 	log.Println("Waiting for other player to join:", gameID)
 
 	consumer := pool.GetConsumer(connect.JoinLobbyQueue(gameID))
@@ -136,17 +157,19 @@ func waitForOtherPlayer(pool *queue.Pool, manager *client.WebSocketManager, game
 			log.Println("Joining player:", joinLobby.Player.Username)
 			c, err := createPlayer(manager, gameID, joinLobby.Player.UserID)
 			if err != nil {
+				span.RecordError(err)
 				return nil, nil, err
 			}
 
 			auth := token.NewGameToken(joinLobby.Player.UserID, gameID, config.Config.Server.ID, config.Config.Server.Host, config.Config.Auth.Issuer, time.Now())
 			authToken, err := auth.Sign([]byte(config.Config.Auth.Secret))
 			if err != nil {
+				span.RecordError(err)
 				return nil, nil, errors.Wrap(err, "failed to sign auth token")
 			}
 
 			publisher := pool.GetPublisher(connect.JoinedLobbyQueue(gameID))
-			err = publisher.PublishJSON(connect.JoinFarkleResponse{
+			err = publisher.PublishJSON(ctx, connect.JoinFarkleResponse{
 				GameID:     gameID,
 				ServerID:   config.Config.Server.ID,
 				ServerHost: config.Config.Server.Host,
@@ -155,6 +178,7 @@ func waitForOtherPlayer(pool *queue.Pool, manager *client.WebSocketManager, game
 
 			publisher.Close()
 			if err != nil {
+				span.RecordError(err)
 				return nil, nil, err
 			}
 
