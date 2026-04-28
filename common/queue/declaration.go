@@ -18,7 +18,7 @@ func (decl *Declaration) declareQueue(channel *amqp.Channel) (amqp.Queue, error)
 	if decl.Temporary {
 		return channel.QueueDeclare(
 			decl.Name,
-			false,
+			true,
 			false,
 			false,
 			false,
